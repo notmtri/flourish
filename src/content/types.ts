@@ -1,5 +1,3 @@
-export type Locale = 'en' | 'vi';
-
 export interface ReviewContent {
   id: string;
   customerName: string;
@@ -20,7 +18,7 @@ export interface SiteCopy {
     };
     adminAriaLabel: string;
     cartAriaLabel: string;
-    languageToggleLabel: string;
+    logoAlt: string;
   };
   footer: {
     description: string;
@@ -203,6 +201,8 @@ export interface SiteCopy {
     updateProductFailed: string;
     deleteProductFailed: string;
     updateOrderFailed: string;
+    backendLoadingTitle: string;
+    backendLoadingCopy: string;
     adminLogin: {
       kicker: string;
       title: string;

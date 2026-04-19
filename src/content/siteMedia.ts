@@ -1,5 +1,15 @@
 import { ReviewContent } from './types';
 
+export const brandSettingsStorageKey = 'flourish_brand_settings';
+
+export interface BrandSettings {
+  logoUrl: string;
+}
+
+export const defaultBrandSettings: BrandSettings = {
+  logoUrl: '',
+};
+
 export const siteMedia = {
   products: {
     fallbackImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900',

@@ -1,4 +1,7 @@
+import logging
+
 from django.contrib.auth import authenticate
+from django.db import transaction
 from rest_framework.authtoken.models import Token
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -12,7 +15,14 @@ from .serializers import (
     ProductSerializer,
     ReviewSerializer,
 )
-from .services import VietQrError, generate_preview_order_number, generate_vietqr
+from .services import (
+    VietQrError,
+    generate_preview_order_number,
+    generate_vietqr,
+    send_order_notification_email,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def is_admin(request):
@@ -172,6 +182,14 @@ def orders_collection(request):
     serializer = OrderCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     order = serializer.save()
+
+    def notify_admin():
+        try:
+            send_order_notification_email(order)
+        except Exception:
+            logger.exception("Failed to send order notification email for order %s", order.order_number)
+
+    transaction.on_commit(notify_admin)
     return Response({"order": OrderSerializer(order).data}, status=status.HTTP_201_CREATED)
 
 

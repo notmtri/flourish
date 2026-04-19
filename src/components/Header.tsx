@@ -1,14 +1,15 @@
 import { Menu, Settings2, ShoppingBag, X } from 'lucide-react';
 import { useState } from 'react';
-import { Locale, SiteCopy } from '../content';
+import { SiteCopy } from '../content';
+import { BrandSettings } from '../content/siteMedia';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface HeaderProps {
   cartItemCount: number;
   onNavigate: (page: string) => void;
   onOpenAdmin: () => void;
   currentPage: string;
-  locale: Locale;
-  onToggleLocale: () => void;
+  brandSettings: BrandSettings;
   copy: SiteCopy['header'];
 }
 
@@ -17,8 +18,7 @@ export default function Header({
   onNavigate,
   onOpenAdmin,
   currentPage,
-  locale,
-  onToggleLocale,
+  brandSettings,
   copy,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -34,15 +34,25 @@ export default function Header({
 
   return (
     <header className="sticky top-0 z-50 border-b border-[color:var(--line)] bg-[#fffaf6]">
-      <div className="shell">
+      <div className="shell-wide">
         <div className="flex items-center justify-between gap-4 py-4">
           <button
             onClick={() => handleNavigate('home')}
             className="group flex items-center gap-3 text-left"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(203,111,134,0.14)] text-lg font-bold text-[color:var(--accent)] transition group-hover:bg-[rgba(203,111,134,0.2)]">
-              F
-            </div>
+            {brandSettings.logoUrl ? (
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[color:var(--line)] bg-white">
+                <ImageWithFallback
+                  src={brandSettings.logoUrl}
+                  alt={copy.logoAlt}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(203,111,134,0.14)] text-lg font-bold text-[color:var(--accent)] transition group-hover:bg-[rgba(203,111,134,0.2)]">
+                F
+              </div>
+            )}
             <div>
               <p className="brand-heading text-2xl text-[color:var(--foreground)]">{copy.brandName}</p>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
@@ -75,13 +85,6 @@ export default function Header({
 
           <div className="hidden items-center gap-3 md:flex">
             <button
-              onClick={onToggleLocale}
-              aria-label={copy.languageToggleLabel}
-              className="inline-flex h-12 items-center rounded-full border border-[color:var(--line)] bg-white/85 px-4 text-sm font-semibold text-[color:var(--foreground)] transition hover:-translate-y-0.5"
-            >
-              {locale === 'en' ? 'VI' : 'EN'}
-            </button>
-            <button
               onClick={onOpenAdmin}
               aria-label={copy.adminAriaLabel}
               className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/85 text-[color:var(--foreground)] transition hover:-translate-y-0.5"
@@ -107,13 +110,6 @@ export default function Header({
           </div>
 
           <div className="flex items-center gap-2 md:hidden">
-            <button
-              onClick={onToggleLocale}
-              aria-label={copy.languageToggleLabel}
-              className="inline-flex h-12 items-center rounded-full border border-[color:var(--line)] bg-white/80 px-3 text-sm font-semibold text-[color:var(--foreground)]"
-            >
-              {locale === 'en' ? 'VI' : 'EN'}
-            </button>
             <button
               onClick={onOpenAdmin}
               aria-label={copy.adminAriaLabel}

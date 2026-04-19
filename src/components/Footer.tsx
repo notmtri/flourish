@@ -11,7 +11,7 @@ interface FooterProps {
 export default function Footer({ onNavigate, copy, navCopy }: FooterProps) {
   return (
     <footer className="mt-16 border-t border-[color:var(--line)] bg-[rgba(53,38,31,0.96)] text-white">
-      <div className="shell py-14">
+      <div className="shell-wide py-14">
         <div className="grid gap-10 lg:grid-cols-[1.3fr_0.8fr_1fr]">
           <div className="space-y-5">
             <div>

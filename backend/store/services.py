@@ -1,10 +1,16 @@
 import json
+import logging
 import os
 import re
 import unicodedata
 from urllib.parse import quote
 from datetime import datetime
 from urllib import error, request
+
+from django.conf import settings
+from django.core.mail import send_mail
+
+logger = logging.getLogger(__name__)
 
 
 class VietQrError(Exception):
@@ -25,6 +31,44 @@ class VietQrProviderError(VietQrError):
 
 class VietQrRequestError(VietQrError):
     status_code = 400
+
+
+def send_order_notification_email(order) -> bool:
+    recipient = settings.ORDER_NOTIFICATION_EMAIL
+    if not recipient:
+        logger.warning("ORDER_NOTIFICATION_EMAIL / ADMIN_EMAIL is not configured; skipping order email.")
+        return False
+
+    subject = f"New Flourish order: {order.order_number}"
+    item_lines = [
+        f"- {item.product_name} x {item.quantity} @ {int(item.unit_price):,} VND"
+        for item in order.items.all()
+    ]
+    message = "\n".join(
+        [
+            "A new order has been placed.",
+            "",
+            f"Order number: {order.order_number}",
+            f"Customer: {order.customer_name}",
+            f"Phone: {order.phone}",
+            f"Address: {order.address}",
+            f"Payment method: {order.payment_method}",
+            f"Payment status: {order.payment_status}",
+            f"Total amount: {int(order.total_amount):,} VND",
+            "",
+            "Items:",
+            *item_lines,
+        ]
+    )
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[recipient],
+        fail_silently=False,
+    )
+    return True
 
 
 def _normalize_vietqr_text(value: str) -> str:

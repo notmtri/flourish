@@ -1,5 +1,6 @@
 import { Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { BrandSettings } from '../content/siteMedia';
 import { formatCurrency, formatOrderDate } from '../utils/format';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -39,10 +40,12 @@ interface Order {
 interface AdminPanelProps {
   products: Product[];
   orders: Order[];
+  brandSettings: BrandSettings;
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateOrderStatus: (id: string, status: string, paymentStatus: string) => void;
+  onUpdateBrandSettings: (settings: BrandSettings) => void;
   onLogout: () => void;
 }
 
@@ -53,10 +56,12 @@ function StatusPill({ children }: { children: string }) {
 export default function AdminPanel({
   products,
   orders,
+  brandSettings,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
   onUpdateOrderStatus,
+  onUpdateBrandSettings,
   onLogout,
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
@@ -162,6 +167,54 @@ export default function AdminPanel({
       </div>
 
       <div className="section-shell pt-10">
+        <section className="surface-card-strong mb-8 p-6 sm:p-8">
+          <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div>
+              <span className="section-kicker">Branding</span>
+              <h2 className="text-3xl text-[color:var(--foreground)]">Edit the storefront logo.</h2>
+              <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
+                Paste any public image URL. Leaving the field empty restores the default lettermark.
+              </p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-[1.3fr_0.7fr]">
+              <div>
+                <label className="field-label">Logo image URL</label>
+                <input
+                  type="url"
+                  value={brandSettings.logoUrl}
+                  onChange={(event) =>
+                    onUpdateBrandSettings({
+                      ...brandSettings,
+                      logoUrl: event.target.value.trim(),
+                    })
+                  }
+                  className="input-field"
+                  placeholder="https://example.com/flourish-logo.png"
+                />
+              </div>
+
+              <div>
+                <p className="field-label">Preview</p>
+                <div className="flex h-[88px] items-center gap-4 rounded-[24px] border border-[color:var(--line)] bg-white/80 px-5">
+                  {brandSettings.logoUrl ? (
+                    <ImageWithFallback
+                      src={brandSettings.logoUrl}
+                      alt="Brand logo preview"
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[rgba(203,111,134,0.14)] text-lg font-bold text-[color:var(--accent)]">
+                      F
+                    </div>
+                  )}
+                  <p className="text-sm text-[color:var(--muted)]">Header updates immediately after changes.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="grid gap-4 md:grid-cols-3">
           {orderStats.map(({ label, value, icon: Icon }) => (
             <div key={label} className="surface-card p-6">

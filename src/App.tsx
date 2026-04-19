@@ -6,7 +6,12 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import HomePage from './components/HomePage';
 import ProductsPage from './components/ProductsPage';
-import { content, Locale } from './content';
+import { content } from './content';
+import {
+  brandSettingsStorageKey,
+  BrandSettings,
+  defaultBrandSettings,
+} from './content/siteMedia';
 import './index.css';
 import { Analytics } from "@vercel/analytics/react"
 import { SpeedInsights } from "@vercel/speed-insights/react"
@@ -74,9 +79,22 @@ const localApiBase = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [locale, setLocale] = useState<Locale>(() => {
-    const savedLocale = localStorage.getItem('flourish_locale');
-    return savedLocale === 'vi' ? 'vi' : 'en';
+  const [brandSettings, setBrandSettings] = useState<BrandSettings>(() => {
+    const savedSettings = localStorage.getItem(brandSettingsStorageKey);
+
+    if (!savedSettings) {
+      return defaultBrandSettings;
+    }
+
+    try {
+      return {
+        ...defaultBrandSettings,
+        ...JSON.parse(savedSettings),
+      };
+    } catch (error) {
+      console.error('Invalid saved brand settings:', error);
+      return defaultBrandSettings;
+    }
   });
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -87,17 +105,18 @@ export default function App() {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   const configuredApiBase = process.env.REACT_APP_API_BASE?.trim().replace(/\/+$/, '');
   const isLocalHost =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const apiBase = configuredApiBase || (isLocalHost ? localApiBase : '');
   const isAdmin = Boolean(adminToken);
-  const copy = content[locale];
+  const copy = content;
 
   useEffect(() => {
-    localStorage.setItem('flourish_locale', locale);
-  }, [locale]);
+    localStorage.setItem(brandSettingsStorageKey, JSON.stringify(brandSettings));
+  }, [brandSettings]);
 
   const getApiUrl = (path: string) => {
     if (!apiBase) {
@@ -122,11 +141,29 @@ export default function App() {
   };
 
   useEffect(() => {
-    void fetchProducts();
-    void fetchReviews();
-    if (isAdmin) {
-      void fetchOrders();
-    }
+    let active = true;
+
+    const bootstrapStorefront = async () => {
+      setIsBootstrapping(true);
+
+      try {
+        await Promise.all([
+          fetchProducts(),
+          fetchReviews(),
+          ...(isAdmin ? [fetchOrders()] : []),
+        ]);
+      } finally {
+        if (active) {
+          setIsBootstrapping(false);
+        }
+      }
+    };
+
+    void bootstrapStorefront();
+
+    return () => {
+      active = false;
+    };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -496,10 +533,12 @@ export default function App() {
       <AdminPanel
         products={products}
         orders={orders}
+        brandSettings={brandSettings}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
         onDeleteProduct={handleDeleteProduct}
         onUpdateOrderStatus={handleUpdateOrderStatus}
+        onUpdateBrandSettings={setBrandSettings}
         onLogout={() => {
           void fetch(getApiUrl('/auth/logout/'), {
             method: 'POST',
@@ -557,14 +596,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      {isBootstrapping && (
+        <div className="border-b border-[color:var(--line)] bg-[rgba(211,154,74,0.16)]">
+          <div className="shell-wide flex flex-col gap-2 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-semibold text-[color:var(--foreground)]">
+              {copy.app.backendLoadingTitle}
+            </p>
+            <p className="text-[color:var(--muted)]">{copy.app.backendLoadingCopy}</p>
+          </div>
+        </div>
+      )}
+
       {currentPage !== 'admin' && (
         <Header
           cartItemCount={cartItemCount}
           onNavigate={navigateTo}
           onOpenAdmin={() => setShowAdminLogin(true)}
           currentPage={currentPage}
-          locale={locale}
-          onToggleLocale={() => setLocale((current) => (current === 'en' ? 'vi' : 'en'))}
+          brandSettings={brandSettings}
           copy={copy.header}
         />
       )}
@@ -609,6 +658,8 @@ export default function App() {
       </main>
 
       {currentPage !== 'admin' && <Footer onNavigate={navigateTo} copy={copy.footer} navCopy={copy.header.nav} />}
+      <Analytics />
+      <SpeedInsights />
     </div>
   );
 }

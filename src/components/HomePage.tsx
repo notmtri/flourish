@@ -26,10 +26,10 @@ export default function HomePage({ reviews, onShopNow, copy }: HomePageProps) {
 
   return (
     <div className="overflow-hidden">
-      <section className="shell grid gap-12 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:items-center lg:py-20">
+      <section className="shell-wide grid gap-10 py-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14 lg:py-20">
         <div className="relative z-10">
           <span className="section-kicker">{copy.heroKicker}</span>
-          <h1 className="section-title max-w-xl text-5xl sm:text-6xl lg:text-7xl">{copy.heroTitle}</h1>
+          <h1 className="section-title max-w-3xl text-5xl sm:text-6xl lg:text-7xl">{copy.heroTitle}</h1>
           <p className="section-copy mt-6 max-w-xl">
             {copy.heroCopy}
           </p>
@@ -53,12 +53,12 @@ export default function HomePage({ reviews, onShopNow, copy }: HomePageProps) {
         </div>
 
         <div className="relative">
-          <div className="grid grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="surface-card-strong overflow-hidden rounded-[28px] p-3">
               <ImageWithFallback
                 src={siteMedia.home.heroMain}
                 alt="Flourish bouquet closeup"
-                className="h-[320px] w-full rounded-[22px] object-cover sm:h-[420px]"
+                className="h-[320px] w-full rounded-[22px] object-cover sm:h-[420px] lg:h-[520px]"
               />
             </div>
             <div className="space-y-4 sm:space-y-5">
@@ -151,7 +151,7 @@ export default function HomePage({ reviews, onShopNow, copy }: HomePageProps) {
       </section>
 
       <section className="pb-16 pt-4 sm:pb-20">
-        <div className="shell">
+        <div className="shell-wide">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <span className="section-kicker">{copy.reviews.kicker}</span>

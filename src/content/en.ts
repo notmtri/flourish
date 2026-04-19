@@ -11,7 +11,7 @@ export const en: SiteCopy = {
     },
     adminAriaLabel: 'Open admin settings',
     cartAriaLabel: 'Open cart',
-    languageToggleLabel: 'Switch language',
+    logoAlt: 'Flourish logo',
   },
   footer: {
     description:
@@ -227,6 +227,8 @@ export const en: SiteCopy = {
     updateProductFailed: 'Failed to update product.',
     deleteProductFailed: 'Failed to delete product.',
     updateOrderFailed: 'Failed to update order.',
+    backendLoadingTitle: 'Loading storefront data',
+    backendLoadingCopy: 'Connecting to the backend and preparing products, reviews, and checkout services.',
     adminLogin: {
       kicker: 'Private access',
       title: 'Admin sign in',

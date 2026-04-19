@@ -1,10 +1,6 @@
 import { en } from './en';
-import { vi } from './vi';
-import { Locale, SiteCopy } from './types';
+import { SiteCopy } from './types';
 
-export const content: Record<Locale, SiteCopy> = {
-  en,
-  vi,
-};
+export const content: SiteCopy = en;
 
-export type { Locale, ReviewContent, SiteCopy } from './types';
+export type { ReviewContent, SiteCopy } from './types';
