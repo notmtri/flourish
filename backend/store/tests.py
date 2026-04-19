@@ -4,7 +4,14 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from .models import Order
-from .services import VietQrProviderError, build_order_reference
+from .services import (
+    VietQrConfigError,
+    VietQrProviderError,
+    build_order_reference,
+    build_vietqr_quick_link,
+    generate_vietqr,
+    is_valid_vietqr_acq_id,
+)
 
 
 class VietQrServiceTests(TestCase):
@@ -13,6 +20,40 @@ class VietQrServiceTests(TestCase):
 
         self.assertLessEqual(len(reference), 25)
         self.assertTrue(reference.endswith("001"))
+
+    def test_build_vietqr_quick_link_matches_documented_format(self):
+        quick_link = build_vietqr_quick_link(
+            acq_id="970415",
+            account_no="113366668888",
+            template="compact2",
+            amount=79000,
+            transfer_content="Ung Ho Quy Vac Xin",
+            account_name="QUY VAC XIN PHONG CHONG COVID",
+        )
+
+        self.assertIn("https://img.vietqr.io/image/970415-113366668888-compact2.png", quick_link)
+        self.assertIn("amount=79000", quick_link)
+        self.assertIn("addInfo=Ung%20Ho%20Quy%20Vac%20Xin", quick_link)
+
+    def test_invalid_acq_id_rejects_obvious_placeholders(self):
+        self.assertFalse(is_valid_vietqr_acq_id("686868"))
+        self.assertFalse(is_valid_vietqr_acq_id("abc123"))
+        self.assertTrue(is_valid_vietqr_acq_id("970415"))
+
+    @patch.dict(
+        "os.environ",
+        {
+            "VIETQR_CLIENT_ID": "client",
+            "VIETQR_API_KEY": "key",
+            "VIETQR_ACCOUNT_NO": "1041802514",
+            "VIETQR_ACCOUNT_NAME": "NGUYEN HOANG MINH TRI",
+            "VIETQR_ACQ_ID": "not-a-bin",
+        },
+        clear=False,
+    )
+    def test_generate_vietqr_rejects_invalid_bank_bin(self):
+        with self.assertRaises(VietQrConfigError):
+            generate_vietqr(amount=1000, customer_name="Nguyen", order_number="FLR-TEST-003")
 
 
 class VietQrPreviewApiTests(TestCase):

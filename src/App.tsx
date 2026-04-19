@@ -68,6 +68,7 @@ interface VietQrPreview {
 type Page = 'home' | 'products' | 'cart' | 'checkout' | 'admin' | 'order-success';
 
 const validPages: Page[] = ['home', 'products', 'cart', 'checkout', 'admin', 'order-success'];
+const localApiBase = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -81,8 +82,33 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
-  const apiBase = process.env.REACT_APP_API_BASE || 'http://127.0.0.1:8000/api';
+  const configuredApiBase = process.env.REACT_APP_API_BASE?.trim().replace(/\/+$/, '');
+  const isLocalHost =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const apiBase = configuredApiBase || (isLocalHost ? localApiBase : '');
   const isAdmin = Boolean(adminToken);
+
+  const getApiUrl = (path: string) => {
+    if (!apiBase) {
+      throw new Error(
+        'Missing REACT_APP_API_BASE. Set it to your deployed backend URL in Vercel.',
+      );
+    }
+
+    return `${apiBase}${path}`;
+  };
+
+  const getFetchErrorMessage = (error: unknown, action: string) => {
+    if (error instanceof TypeError) {
+      return `${action} failed because the API could not be reached at ${apiBase || '[missing REACT_APP_API_BASE]'}. Make sure the Django server is running on port 8000 for local development, or set REACT_APP_API_BASE to your deployed backend URL.`;
+    }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    return `${action} failed.`;
+  };
 
   useEffect(() => {
     void fetchProducts();
@@ -116,7 +142,7 @@ export default function App() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${apiBase}/products/`);
+      const response = await fetch(getApiUrl('/products/'));
 
       if (!response.ok) {
         throw new Error('Failed to fetch products');
@@ -132,7 +158,7 @@ export default function App() {
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch(`${apiBase}/reviews/`);
+      const response = await fetch(getApiUrl('/reviews/'));
 
       if (!response.ok) {
         throw new Error('Failed to fetch reviews');
@@ -148,7 +174,7 @@ export default function App() {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch(`${apiBase}/orders/`, {
+      const response = await fetch(getApiUrl('/orders/'), {
         headers: {
           Authorization: `Token ${adminToken}`,
         },
@@ -209,7 +235,7 @@ export default function App() {
     paymentScreenshot?: string;
   }) => {
     try {
-      const response = await fetch(`${apiBase}/orders/`, {
+      const response = await fetch(getApiUrl('/orders/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +253,7 @@ export default function App() {
       const data = await response.json();
 
       if (orderData.paymentScreenshot) {
-        await fetch(`${apiBase}/orders/${data.order.id}/payment/`, {
+        await fetch(getApiUrl(`/orders/${data.order.id}/payment/`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -249,7 +275,7 @@ export default function App() {
     amount: number;
     orderNumber?: string;
   }) => {
-    const response = await fetch(`${apiBase}/payments/vietqr/preview/`, {
+    const response = await fetch(getApiUrl('/payments/vietqr/preview/'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -278,7 +304,7 @@ export default function App() {
 
   const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
     try {
-      const response = await fetch(`${apiBase}/products/`, {
+      const response = await fetch(getApiUrl('/products/'), {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
@@ -299,7 +325,7 @@ export default function App() {
 
   const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
     try {
-      const response = await fetch(`${apiBase}/products/${id}/`, {
+      const response = await fetch(getApiUrl(`/products/${id}/`), {
         method: 'PUT',
         headers: {
           ...getAuthHeaders(),
@@ -324,7 +350,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(`${apiBase}/products/${id}/`, {
+      const response = await fetch(getApiUrl(`/products/${id}/`), {
         method: 'DELETE',
         headers: {
           Authorization: `Token ${adminToken}`,
@@ -348,7 +374,7 @@ export default function App() {
     paymentStatus: string,
   ) => {
     try {
-      const response = await fetch(`${apiBase}/orders/${id}/`, {
+      const response = await fetch(getApiUrl(`/orders/${id}/`), {
         method: 'PUT',
         headers: {
           ...getAuthHeaders(),
@@ -371,7 +397,7 @@ export default function App() {
     event.preventDefault();
 
     try {
-      const response = await fetch(`${apiBase}/auth/login/`, {
+      const response = await fetch(getApiUrl('/auth/login/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -395,7 +421,7 @@ export default function App() {
       setAdminPassword('');
       return;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Login failed.';
+      const message = getFetchErrorMessage(error, 'Admin login');
       alert(message);
     }
   };
@@ -464,7 +490,7 @@ export default function App() {
         onDeleteProduct={handleDeleteProduct}
         onUpdateOrderStatus={handleUpdateOrderStatus}
         onLogout={() => {
-          void fetch(`${apiBase}/auth/logout/`, {
+          void fetch(getApiUrl('/auth/logout/'), {
             method: 'POST',
             headers: {
               Authorization: `Token ${adminToken}`,

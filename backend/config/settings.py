@@ -3,6 +3,7 @@ from pathlib import Path
 
 import dj_database_url
 from dotenv import load_dotenv
+from dj_database_url import ParseError
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -86,12 +87,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+default_database_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3').as_posix()}"
+database_url = os.getenv("DATABASE_URL", "").strip()
+
+if database_url and "[" in database_url and "]" in database_url:
+    database_url = ""
+
+try:
+    database_config = dj_database_url.parse(database_url) if database_url else dj_database_url.parse(default_database_url)
+except ParseError:
+    database_config = dj_database_url.parse(default_database_url)
+
+database_config["CONN_MAX_AGE"] = 600
+database_config["CONN_HEALTH_CHECKS"] = True
+
 DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{(BASE_DIR / 'db.sqlite3').as_posix()}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
+    "default": database_config,
 }
 
 

@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+from urllib.parse import quote
 from datetime import datetime
 from urllib import error, request
 
@@ -60,6 +61,26 @@ def get_vietqr_bank_info():
     }
 
 
+def build_vietqr_quick_link(*, acq_id: str, account_no: str, template: str, amount: int, transfer_content: str, account_name: str) -> str:
+    encoded_add_info = quote(transfer_content, safe="")
+    encoded_account_name = quote(account_name, safe="")
+    return (
+        f"https://img.vietqr.io/image/{acq_id}-{account_no}-{template}.png"
+        f"?amount={int(amount)}&addInfo={encoded_add_info}&accountName={encoded_account_name}"
+    )
+
+
+def is_valid_vietqr_acq_id(acq_id: str) -> bool:
+    # Guard obvious placeholders / malformed BINs. Full bank validation should come from VietQR's bank list.
+    if not re.fullmatch(r"\d{6}", acq_id):
+        return False
+    if len(set(acq_id)) == 1:
+        return False
+    if re.fullmatch(r"(\d{2})\1{2}", acq_id):
+        return False
+    return True
+
+
 def build_vietqr_preview(*, amount: int, customer_name: str, order_number: str, qr_code: str = "", qr_data_url: str = ""):
     transfer_content = build_order_reference(customer_name, order_number)
     return {
@@ -98,6 +119,21 @@ def generate_vietqr(*, amount: int, customer_name: str, order_number: str):
         raise VietQrConfigError(f"Missing VietQR configuration: {', '.join(missing)}")
 
     preview = build_vietqr_preview(amount=amount, customer_name=customer_name, order_number=order_number)
+    quick_link = build_vietqr_quick_link(
+        acq_id=acq_id,
+        account_no=account_no,
+        template=template,
+        amount=amount,
+        transfer_content=preview["transferContent"],
+        account_name=bank_info["accountName"],
+    )
+
+    if not is_valid_vietqr_acq_id(acq_id):
+        raise VietQrConfigError(
+            "VIETQR_ACQ_ID is not a valid bank BIN. Replace it with the real 6-digit BIN from VietQR's bank list.",
+            payload=preview,
+        )
+
     payload = {
         "accountNo": account_no,
         "accountName": _normalize_vietqr_text(account_name),
@@ -125,16 +161,31 @@ def generate_vietqr(*, amount: int, customer_name: str, order_number: str):
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
         error_type = VietQrProviderError if exc.code >= 500 else VietQrRequestError
-        raise error_type(f"VietQR API error: {detail or exc.reason}", payload=preview) from exc
+        fallback_preview = {
+            **preview,
+            "qrDataURL": quick_link,
+        }
+        if exc.code >= 500:
+            raise error_type(
+                "VietQR API is temporarily unavailable. Using Quick Link fallback.",
+                payload=fallback_preview,
+            ) from exc
+        raise error_type(f"VietQR API error: {detail or exc.reason}", payload=fallback_preview) from exc
     except error.URLError as exc:
-        raise VietQrProviderError(f"VietQR connection failed: {exc.reason}", payload=preview) from exc
+        raise VietQrProviderError(
+            "VietQR connection failed. Using Quick Link fallback.",
+            payload={**preview, "qrDataURL": quick_link},
+        ) from exc
 
     if data.get("code") != "00":
-        raise VietQrRequestError(data.get("desc") or "VietQR generation failed", payload=preview)
+        raise VietQrRequestError(
+            data.get("desc") or "VietQR generation failed",
+            payload={**preview, "qrDataURL": quick_link},
+        )
 
     return {
         **preview,
         "qrCode": data["data"].get("qrCode", ""),
-        "qrDataURL": data["data"].get("qrDataURL", ""),
+        "qrDataURL": data["data"].get("qrDataURL", "") or quick_link,
         "raw": data,
     }
