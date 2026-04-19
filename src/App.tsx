@@ -7,6 +7,7 @@ import Header from './components/Header';
 import HomePage from './components/HomePage';
 import ProductsPage from './components/ProductsPage';
 import './index.css';
+import { Analytics } from "@vercel/analytics/react"
 
 interface Product {
   id: string;
