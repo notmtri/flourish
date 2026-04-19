@@ -33,6 +33,10 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-dev-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool("DEBUG", default=True)
+REQUIRE_DATABASE_URL = env_bool(
+    "REQUIRE_DATABASE_URL",
+    default=bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_HOSTNAME")),
+)
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
 
@@ -89,14 +93,25 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 default_database_url = f"sqlite:///{(BASE_DIR / 'db.sqlite3').as_posix()}"
 database_url = os.getenv("DATABASE_URL", "").strip()
+database_config = None
 
-if database_url and "[" in database_url and "]" in database_url:
-    database_url = ""
-
-try:
-    database_config = dj_database_url.parse(database_url) if database_url else dj_database_url.parse(default_database_url)
-except ParseError:
-    database_config = dj_database_url.parse(default_database_url)
+if database_url:
+    try:
+        database_config = dj_database_url.parse(database_url)
+    except ParseError as exc:
+        if not REQUIRE_DATABASE_URL:
+            database_config = dj_database_url.parse(default_database_url)
+        else:
+            raise RuntimeError(
+                "Invalid DATABASE_URL in production. Fix the Render DATABASE_URL so Django connects to Supabase instead of falling back to SQLite."
+            ) from exc
+else:
+    if not REQUIRE_DATABASE_URL:
+        database_config = dj_database_url.parse(default_database_url)
+    else:
+        raise RuntimeError(
+            "DATABASE_URL is required in production. Set it in Render to your Supabase Postgres connection string."
+        )
 
 database_config["CONN_MAX_AGE"] = 600
 database_config["CONN_HEALTH_CHECKS"] = True
