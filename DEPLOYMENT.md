@@ -23,6 +23,9 @@ ALLOWED_HOSTS=api.yourdomain.com
 CORS_ALLOWED_ORIGINS=https://yourdomain.com
 CSRF_TRUSTED_ORIGINS=https://yourdomain.com
 DATABASE_URL=postgres://...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=replace-this-with-a-strong-password
+ADMIN_EMAIL=you@example.com
 VIETQR_CLIENT_ID=...
 VIETQR_API_KEY=...
 VIETQR_ACCOUNT_NO=...
@@ -36,34 +39,18 @@ VIETQR_FORMAT=text
 
 Recommended host: Railway or Render.
 
+If your Render service root directory is `backend`, use the commands below as-is. If your service root is the repo root, prefix paths with `backend/` and use `--chdir backend` for Gunicorn.
+
 Build/install:
 
 ```bash
-pip install -r backend/requirements.txt
+pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput && python manage.py sync_admin_user
 ```
 
 Start command:
 
 ```bash
-gunicorn config.wsgi:application --chdir backend
-```
-
-Run migrations:
-
-```bash
-python backend/manage.py migrate
-```
-
-Collect static files:
-
-```bash
-python backend/manage.py collectstatic --noinput
-```
-
-Create admin user:
-
-```bash
-python backend/manage.py createsuperuser
+gunicorn config.wsgi:application
 ```
 
 ## 3. Frontend deploy
@@ -93,8 +80,7 @@ Set `REACT_APP_API_BASE` to the live backend URL before deploying.
 ## 5. Release checklist
 
 1. Deploy backend
-2. Run migrations
-3. Create superuser
+2. Run migrations, collect static files, and sync the admin user from env
 4. Verify `/api/health/`
 5. Deploy frontend with the live API base URL
 6. Test admin login

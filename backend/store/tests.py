@@ -1,5 +1,8 @@
+import io
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -121,3 +124,55 @@ class OrderApiTests(TestCase):
         order = Order.objects.get(order_number="FLR-TEST-002")
         self.assertEqual(order.payment_status, Order.PaymentStatus.AWAITING_VERIFICATION)
         self.assertEqual(int(order.total_amount), 300000)
+
+
+class SyncAdminUserCommandTests(TestCase):
+    @patch.dict(
+        "os.environ",
+        {
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "StrongPass123!",
+            "ADMIN_EMAIL": "admin@example.com",
+        },
+        clear=False,
+    )
+    def test_sync_admin_user_creates_admin_account(self):
+        output = io.StringIO()
+
+        call_command("sync_admin_user", stdout=output)
+
+        User = get_user_model()
+        user = User.objects.get(username="admin")
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.email, "admin@example.com")
+        self.assertTrue(user.check_password("StrongPass123!"))
+        self.assertIn("Created admin user 'admin'", output.getvalue())
+
+    @patch.dict(
+        "os.environ",
+        {
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "ResetPass456!",
+            "ADMIN_EMAIL": "new-admin@example.com",
+        },
+        clear=False,
+    )
+    def test_sync_admin_user_updates_existing_account(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="admin",
+            password="old-password",
+            is_staff=False,
+            is_superuser=False,
+        )
+
+        output = io.StringIO()
+        call_command("sync_admin_user", stdout=output)
+
+        user.refresh_from_db()
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.email, "new-admin@example.com")
+        self.assertTrue(user.check_password("ResetPass456!"))
+        self.assertIn("Updated admin user 'admin'", output.getvalue())
