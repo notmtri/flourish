@@ -599,9 +599,15 @@ export default function App() {
       {isBootstrapping && (
         <div className="border-b border-[color:var(--line)] bg-[rgba(211,154,74,0.16)]">
           <div className="shell-wide flex flex-col gap-2 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="font-semibold text-[color:var(--foreground)]">
-              {copy.app.backendLoadingTitle}
-            </p>
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-[rgba(53,38,31,0.22)] border-t-[color:var(--accent-dark)]"
+                aria-hidden="true"
+              />
+              <p className="font-semibold text-[color:var(--foreground)]">
+                {copy.app.backendLoadingTitle}
+              </p>
+            </div>
             <p className="text-[color:var(--muted)]">{copy.app.backendLoadingCopy}</p>
           </div>
         </div>
