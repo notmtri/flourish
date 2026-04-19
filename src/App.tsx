@@ -6,8 +6,10 @@ import Footer from './components/Footer';
 import Header from './components/Header';
 import HomePage from './components/HomePage';
 import ProductsPage from './components/ProductsPage';
+import { content, Locale } from './content';
 import './index.css';
 import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 interface Product {
   id: string;
@@ -72,6 +74,10 @@ const localApiBase = 'http://127.0.0.1:8000/api';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [locale, setLocale] = useState<Locale>(() => {
+    const savedLocale = localStorage.getItem('flourish_locale');
+    return savedLocale === 'vi' ? 'vi' : 'en';
+  });
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -87,6 +93,11 @@ export default function App() {
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const apiBase = configuredApiBase || (isLocalHost ? localApiBase : '');
   const isAdmin = Boolean(adminToken);
+  const copy = content[locale];
+
+  useEffect(() => {
+    localStorage.setItem('flourish_locale', locale);
+  }, [locale]);
 
   const getApiUrl = (path: string) => {
     if (!apiBase) {
@@ -211,7 +222,7 @@ export default function App() {
       return [...currentCart, { product, quantity: 1 }];
     });
 
-    alert(`${product.name} has been added to your cart.`);
+    alert(copy.app.addedToCart(product.name));
   };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -266,7 +277,7 @@ export default function App() {
       setCurrentPage('order-success');
     } catch (error) {
       console.error('Error placing order:', error);
-      alert('Failed to place order. Please try again.');
+      alert(copy.app.placeOrderFailed);
     }
   };
 
@@ -319,7 +330,7 @@ export default function App() {
       await fetchProducts();
     } catch (error) {
       console.error('Error adding product:', error);
-      alert('Failed to add product.');
+      alert(copy.app.addProductFailed);
     }
   };
 
@@ -340,12 +351,12 @@ export default function App() {
       await fetchProducts();
     } catch (error) {
       console.error('Error updating product:', error);
-      alert('Failed to update product.');
+      alert(copy.app.updateProductFailed);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) {
+    if (!window.confirm(copy.app.deleteProductConfirm)) {
       return;
     }
 
@@ -364,7 +375,7 @@ export default function App() {
       await fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
-      alert('Failed to delete product.');
+      alert(copy.app.deleteProductFailed);
     }
   };
 
@@ -389,7 +400,7 @@ export default function App() {
       await fetchOrders();
     } catch (error) {
       console.error('Error updating order:', error);
-      alert('Failed to update order.');
+      alert(copy.app.updateOrderFailed);
     }
   };
 
@@ -432,48 +443,48 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4 py-10">
         <div className="surface-card-strong w-full max-w-lg p-8 sm:p-10">
-          <span className="section-kicker">Private access</span>
-          <h1 className="text-4xl text-[color:var(--foreground)]">Admin sign in</h1>
+          <span className="section-kicker">{copy.app.adminLogin.kicker}</span>
+          <h1 className="text-4xl text-[color:var(--foreground)]">{copy.app.adminLogin.title}</h1>
           <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
-            Keep the operational side separate, but styled with the same care as the storefront.
+            {copy.app.adminLogin.copy}
           </p>
 
           <form onSubmit={handleAdminLogin} className="mt-8 space-y-5">
             <div>
-              <label className="field-label">Admin username</label>
+              <label className="field-label">{copy.app.adminLogin.usernameLabel}</label>
               <input
                 type="text"
                 value={adminUsername}
                 onChange={(event) => setAdminUsername(event.target.value)}
                 className="input-field mb-4"
-                placeholder="Admin username"
+                placeholder={copy.app.adminLogin.usernamePlaceholder}
               />
-              <label className="field-label">Admin password</label>
+              <label className="field-label">{copy.app.adminLogin.passwordLabel}</label>
               <input
                 type="password"
                 value={adminPassword}
                 onChange={(event) => setAdminPassword(event.target.value)}
                 className="input-field"
-                placeholder="Enter admin password"
+                placeholder={copy.app.adminLogin.passwordPlaceholder}
               />
             </div>
 
             <div className="flex flex-wrap gap-3">
               <button type="submit" className="btn-primary">
-                Login
+                {copy.app.adminLogin.login}
               </button>
               <button
                 type="button"
                 onClick={() => setShowAdminLogin(false)}
                 className="btn-secondary"
               >
-                Cancel
+                {copy.app.adminLogin.cancel}
               </button>
             </div>
           </form>
 
           <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-            Use a real Django staff account
+            {copy.app.adminLogin.footnote}
           </p>
         </div>
       </div>
@@ -523,20 +534,20 @@ export default function App() {
               />
             </svg>
           </div>
-          <span className="section-kicker mt-6">Order confirmed</span>
+          <span className="section-kicker mt-6">{copy.app.orderSuccess.kicker}</span>
           <h1 className="text-4xl text-[color:var(--foreground)] sm:text-5xl">
-            Your Flourish order has been placed.
+            {copy.app.orderSuccess.title}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-            We received your request and will follow up with confirmation details. If you chose QR transfer, your payment proof will be reviewed in the admin queue.
+            {copy.app.orderSuccess.copy}
           </p>
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <button onClick={() => navigateTo('home')} className="btn-primary">
-              Back to home
+              {copy.app.orderSuccess.homeCta}
             </button>
             <button onClick={() => navigateTo('products')} className="btn-secondary">
-              Continue shopping
+              {copy.app.orderSuccess.productsCta}
             </button>
           </div>
         </div>
@@ -552,12 +563,15 @@ export default function App() {
           onNavigate={navigateTo}
           onOpenAdmin={() => setShowAdminLogin(true)}
           currentPage={currentPage}
+          locale={locale}
+          onToggleLocale={() => setLocale((current) => (current === 'en' ? 'vi' : 'en'))}
+          copy={copy.header}
         />
       )}
 
       <main>
         {currentPage === 'home' && (
-          <HomePage reviews={reviews} onShopNow={() => navigateTo('products')} />
+          <HomePage reviews={reviews} onShopNow={() => navigateTo('products')} copy={copy.home} />
         )}
 
         {currentPage === 'products' && (
@@ -568,6 +582,7 @@ export default function App() {
             onViewProduct={(product) => setSelectedProduct(product)}
             selectedProduct={selectedProduct}
             onBack={() => setSelectedProduct(null)}
+            copy={copy.products}
           />
         )}
 
@@ -578,6 +593,7 @@ export default function App() {
             onRemoveItem={handleRemoveItem}
             onCheckout={() => navigateTo('checkout')}
             onContinueShopping={() => navigateTo('products')}
+            copy={copy.cart}
           />
         )}
 
@@ -587,11 +603,12 @@ export default function App() {
             onPlaceOrder={handlePlaceOrder}
             onGenerateVietQr={handleGenerateVietQr}
             onContinueShopping={() => navigateTo('products')}
+            copy={copy.checkout}
           />
         )}
       </main>
 
-      {currentPage !== 'admin' && <Footer onNavigate={navigateTo} />}
+      {currentPage !== 'admin' && <Footer onNavigate={navigateTo} copy={copy.footer} navCopy={copy.header.nav} />}
     </div>
   );
 }

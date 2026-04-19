@@ -117,3 +117,34 @@ a {
     @apply input-field min-h-[120px] resize-y;
   }
 }
+
+.review-marquee-mask {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+}
+
+.review-track {
+  display: flex;
+  gap: 1.25rem;
+  width: max-content;
+  animation: review-scroll 36s linear infinite;
+}
+
+.review-card {
+  width: min(22rem, calc(100vw - 4rem));
+  flex: 0 0 auto;
+}
+
+.review-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes review-scroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 0.625rem));
+  }
+}

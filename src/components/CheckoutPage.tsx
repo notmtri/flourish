@@ -1,5 +1,6 @@
 import { CreditCard, Landmark, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { SiteCopy } from '../content';
 import { formatCurrency } from '../utils/format';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -45,6 +46,7 @@ interface CheckoutPageProps {
     };
   }>;
   onContinueShopping: () => void;
+  copy: SiteCopy['checkout'];
 }
 
 export default function CheckoutPage({
@@ -52,6 +54,7 @@ export default function CheckoutPage({
   onPlaceOrder,
   onGenerateVietQr,
   onContinueShopping,
+  copy,
 }: CheckoutPageProps) {
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress] = useState('');
@@ -78,7 +81,7 @@ export default function CheckoutPage({
   const paymentReference = useMemo(() => {
     const trimmed = customerName.trim();
     if (!trimmed) {
-      return 'FLOURISH ORDER';
+      return copy.alerts.paymentReferenceFallback;
     }
 
     const pieces = trimmed.split(/\s+/).filter(Boolean);
@@ -88,7 +91,7 @@ export default function CheckoutPage({
 
   const handleGenerateQr = async () => {
     if (!customerName.trim()) {
-      alert('Please enter your name before generating the transfer details.');
+      alert(copy.alerts.nameRequiredForQr);
       return;
     }
 
@@ -108,10 +111,10 @@ export default function CheckoutPage({
       setProviderAvailable(data.providerAvailable);
       setShowPaymentDetails(true);
       if (!data.providerAvailable) {
-        setQrError(data.error || 'VietQR is temporarily unavailable. Use the manual transfer details below.');
+        setQrError(data.error || copy.alerts.qrUnavailable);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to generate QR code.';
+      const message = error instanceof Error ? error.message : copy.alerts.generateQrFailed;
       setQrError(message);
     } finally {
       setIsGeneratingQr(false);
@@ -135,17 +138,17 @@ export default function CheckoutPage({
     event.preventDefault();
 
     if (!customerName || !address || !phone) {
-      alert('Please fill in all required fields.');
+      alert(copy.alerts.requiredFields);
       return;
     }
 
     if (paymentMethod === 'QR' && !paymentScreenshot) {
-      alert('Please upload your payment screenshot before placing the order.');
+      alert(copy.alerts.uploadScreenshot);
       return;
     }
 
     if (paymentMethod === 'QR' && !generatedOrderNumber) {
-      alert('Please generate the transfer details before placing the order.');
+      alert(copy.alerts.generateTransferDetails);
       return;
     }
 
@@ -163,12 +166,12 @@ export default function CheckoutPage({
     return (
       <div className="section-shell">
         <div className="surface-card-strong mx-auto max-w-2xl p-10 text-center sm:p-14">
-          <h1 className="text-4xl text-[color:var(--foreground)]">There is nothing to check out yet.</h1>
+          <h1 className="text-4xl text-[color:var(--foreground)]">{copy.empty.title}</h1>
           <p className="mx-auto mt-4 max-w-lg text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-            Add a bouquet to your cart first, then come back here to complete delivery and payment details.
+            {copy.empty.copy}
           </p>
           <button onClick={onContinueShopping} className="btn-primary mt-8">
-            Browse products
+            {copy.empty.cta}
           </button>
         </div>
       </div>
@@ -179,47 +182,47 @@ export default function CheckoutPage({
     <div className="section-shell">
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <section>
-          <span className="section-kicker">Checkout</span>
-          <h1 className="section-title">Confirm delivery details and choose how you want to pay.</h1>
+          <span className="section-kicker">{copy.page.kicker}</span>
+          <h1 className="section-title">{copy.page.title}</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-            Keep the form simple, make the payment choice clear, and show proof-upload only when it is actually needed.
+            {copy.page.copy}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div className="surface-card-strong p-6 sm:p-8">
-              <h2 className="text-3xl text-[color:var(--foreground)]">Delivery information</h2>
+              <h2 className="text-3xl text-[color:var(--foreground)]">{copy.page.deliveryTitle}</h2>
               <div className="mt-6 grid gap-5">
                 <div>
-                  <label className="field-label">Full name *</label>
+                  <label className="field-label">{copy.page.fields.fullName}</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(event) => setCustomerName(event.target.value)}
                     className="input-field"
-                    placeholder="Nguyen Van A"
+                    placeholder={copy.page.placeholders.fullName}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="field-label">Phone number *</label>
+                  <label className="field-label">{copy.page.fields.phone}</label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
                     className="input-field"
-                    placeholder="09xx xxx xxx"
+                    placeholder={copy.page.placeholders.phone}
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="field-label">Delivery address *</label>
+                  <label className="field-label">{copy.page.fields.address}</label>
                   <textarea
                     value={address}
                     onChange={(event) => setAddress(event.target.value)}
                     className="textarea-field"
-                    placeholder="Street, ward, district, city..."
+                    placeholder={copy.page.placeholders.address}
                     required
                   />
                 </div>
@@ -227,7 +230,7 @@ export default function CheckoutPage({
             </div>
 
             <div className="surface-card-strong p-6 sm:p-8">
-              <h2 className="text-3xl text-[color:var(--foreground)]">Payment method</h2>
+              <h2 className="text-3xl text-[color:var(--foreground)]">{copy.page.paymentTitle}</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <label
                   className={`cursor-pointer rounded-[24px] border p-5 transition ${
@@ -248,9 +251,9 @@ export default function CheckoutPage({
                       <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-[color:var(--foreground)]">Cash on delivery</p>
+                      <p className="text-lg font-semibold text-[color:var(--foreground)]">{copy.page.codTitle}</p>
                       <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                        Customer pays when the bouquet is delivered.
+                        {copy.page.codCopy}
                       </p>
                     </div>
                   </div>
@@ -275,9 +278,9 @@ export default function CheckoutPage({
                       <Landmark className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-[color:var(--foreground)]">VietQR transfer</p>
+                      <p className="text-lg font-semibold text-[color:var(--foreground)]">{copy.page.qrTitle}</p>
                       <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                        Customer transfers first, then uploads payment proof for admin review.
+                        {copy.page.qrCopy}
                       </p>
                     </div>
                   </div>
@@ -294,7 +297,7 @@ export default function CheckoutPage({
                         disabled={isGeneratingQr}
                         className="btn-secondary"
                       >
-                        {isGeneratingQr ? 'Preparing transfer...' : 'Generate transfer details'}
+                        {isGeneratingQr ? copy.page.generatingQr : copy.page.generateQr}
                       </button>
                       {qrError && (
                         <p className="text-sm font-semibold text-red-600">{qrError}</p>
@@ -314,13 +317,13 @@ export default function CheckoutPage({
                             ) : (
                               <div>
                                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                                  Manual transfer
+                                  {copy.page.manualTransferLabel}
                                 </p>
                                 <p className="brand-heading mt-3 text-3xl text-[color:var(--foreground)]">
-                                  QR unavailable
+                                  {copy.page.qrUnavailableTitle}
                                 </p>
                                 <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
-                                  Continue with the bank details on the right and upload your payment proof after transferring.
+                                  {copy.page.qrUnavailableCopy}
                                 </p>
                               </div>
                             )}
@@ -329,7 +332,7 @@ export default function CheckoutPage({
                           <div className="space-y-4">
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                Amount to transfer
+                                {copy.page.amountLabel}
                               </p>
                               <p className="mt-2 text-3xl font-bold text-[color:var(--accent-dark)]">
                                 {formatCurrency(total)}
@@ -337,15 +340,15 @@ export default function CheckoutPage({
                             </div>
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                Order number
+                                {copy.page.orderNumberLabel}
                               </p>
                               <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
-                                {generatedOrderNumber || 'Generating...'}
+                                {generatedOrderNumber || copy.alerts.generatingOrderNumber}
                               </p>
                             </div>
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                Payment description
+                                {copy.page.paymentDescriptionLabel}
                               </p>
                               <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-[rgba(203,111,134,0.06)] px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                 {generatedTransferContent || paymentReference}
@@ -355,7 +358,7 @@ export default function CheckoutPage({
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                    Account number
+                                    {copy.page.accountNumberLabel}
                                   </p>
                                   <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                     {bankInfo.accountNo}
@@ -363,7 +366,7 @@ export default function CheckoutPage({
                                 </div>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                    Account name
+                                    {copy.page.accountNameLabel}
                                   </p>
                                   <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                     {bankInfo.accountName}
@@ -371,7 +374,7 @@ export default function CheckoutPage({
                                 </div>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                    Bank BIN
+                                    {copy.page.bankBinLabel}
                                   </p>
                                   <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                     {bankInfo.acqId}
@@ -379,19 +382,19 @@ export default function CheckoutPage({
                                 </div>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                                    Transfer mode
+                                    {copy.page.transferModeLabel}
                                   </p>
                                   <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
-                                    {providerAvailable ? 'VietQR live' : 'Manual fallback'}
+                                    {providerAvailable ? copy.page.transferModeLive : copy.page.transferModeFallback}
                                   </p>
                                 </div>
                               </div>
                             )}
                             <p className="text-sm leading-7 text-[color:var(--muted)]">
-                              After completing the transfer, upload a screenshot below so the order can move into payment verification.
+                              {copy.page.uploadCopy}
                             </p>
                             <button type="button" onClick={handleGenerateQr} disabled={isGeneratingQr} className="btn-secondary">
-                              {isGeneratingQr ? 'Refreshing...' : providerAvailable ? 'Refresh VietQR' : 'Retry VietQR'}
+                              {isGeneratingQr ? copy.page.refreshingQr : providerAvailable ? copy.page.refreshQr : copy.page.retryQr}
                             </button>
                           </div>
                         </div>
@@ -402,7 +405,7 @@ export default function CheckoutPage({
                       )}
 
                       <div>
-                        <label className="field-label">Upload payment screenshot *</label>
+                        <label className="field-label">{copy.page.uploadLabel}</label>
                         <div className="rounded-[28px] border border-dashed border-[color:var(--line)] bg-white/80 p-4 sm:p-6">
                           <input
                             type="file"
@@ -426,10 +429,10 @@ export default function CheckoutPage({
                                 <Upload className="h-8 w-8 text-[color:var(--accent-dark)]" />
                                 <div>
                                   <p className="text-sm font-semibold text-[color:var(--foreground)]">
-                                    Click to upload payment proof
+                                    {copy.page.uploadTitle}
                                   </p>
                                   <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                                    JPG, PNG, or screenshot image from your banking app.
+                                    {copy.page.uploadCopySecondary}
                                   </p>
                                 </div>
                               </>
@@ -444,20 +447,20 @@ export default function CheckoutPage({
             </div>
 
             <button type="submit" className="btn-primary w-full">
-              Place order
+              {copy.page.submit}
             </button>
           </form>
         </section>
 
         <aside className="lg:pt-14">
           <div className="surface-card-strong sticky top-28 p-6 sm:p-8">
-            <h2 className="text-3xl text-[color:var(--foreground)]">Order summary</h2>
+            <h2 className="text-3xl text-[color:var(--foreground)]">{copy.page.summaryTitle}</h2>
             <div className="mt-6 space-y-4">
               {cart.map((item) => (
                 <div key={item.product.id} className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-[color:var(--foreground)]">{item.product.name}</p>
-                    <p className="mt-1 text-sm text-[color:var(--muted)]">Qty {item.quantity}</p>
+                    <p className="mt-1 text-sm text-[color:var(--muted)]">{copy.page.quantityLabel(item.quantity)}</p>
                   </div>
                   <span className="text-sm font-semibold text-[color:var(--foreground)]">
                     {formatCurrency(item.product.price * item.quantity)}
@@ -469,7 +472,7 @@ export default function CheckoutPage({
             <div className="mt-6 border-t border-[color:var(--line)] pt-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  Total
+                  {copy.page.totalLabel}
                 </span>
                 <span className="text-3xl font-bold text-[color:var(--accent-dark)]">
                   {formatCurrency(total)}
@@ -479,10 +482,10 @@ export default function CheckoutPage({
 
             <div className="mt-6 rounded-[24px] border border-[color:var(--line)] bg-white/80 p-5">
               <p className="text-sm font-semibold text-[color:var(--foreground)]">
-                Payment review flow
+                {copy.page.reviewFlowTitle}
               </p>
               <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                QR orders should move to awaiting verification after proof upload. COD orders can stay simple and proceed straight to confirmation.
+                {copy.page.reviewFlowCopy}
               </p>
             </div>
           </div>

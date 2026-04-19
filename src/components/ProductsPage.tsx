@@ -1,5 +1,7 @@
 import { ChevronLeft, Heart, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { SiteCopy } from '../content';
+import { siteMedia } from '../content/siteMedia';
 import { formatCurrency } from '../utils/format';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
@@ -25,10 +27,10 @@ interface ProductsPageProps {
   onViewProduct: (product: Product) => void;
   selectedProduct: Product | null;
   onBack: () => void;
+  copy: SiteCopy['products'];
 }
 
-const fallbackImage =
-  'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900';
+const fallbackImage = siteMedia.products.fallbackImage;
 
 export default function ProductsPage({
   products,
@@ -37,6 +39,7 @@ export default function ProductsPage({
   onViewProduct,
   selectedProduct,
   onBack,
+  copy,
 }: ProductsPageProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -61,7 +64,7 @@ export default function ProductsPage({
       <div className="section-shell">
         <button onClick={onBack} className="btn-ghost">
           <ChevronLeft className="h-4 w-4" />
-          Back to shop
+          {copy.detail.backToShop}
         </button>
 
         <div className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
@@ -87,7 +90,7 @@ export default function ProductsPage({
                 >
                   <ImageWithFallback
                     src={image}
-                    alt={`${selectedProduct.name} preview ${index + 1}`}
+                    alt={copy.detail.galleryAlt(selectedProduct.name, index)}
                     className="h-20 w-full rounded-[16px] object-cover"
                   />
                 </button>
@@ -98,8 +101,8 @@ export default function ProductsPage({
           <div className="surface-card-strong p-8 sm:p-10">
             <div className="flex flex-wrap gap-2">
               <span className="pill">{selectedProduct.category}</span>
-              {selectedProduct.isBestSeller && <span className="pill">Best seller</span>}
-              {inCartCount > 0 && <span className="pill">In cart: {inCartCount}</span>}
+              {selectedProduct.isBestSeller && <span className="pill">{copy.detail.bestSellerPill}</span>}
+              {inCartCount > 0 && <span className="pill">{copy.detail.inCartPill(inCartCount)}</span>}
             </div>
 
             <h1 className="mt-5 text-4xl text-[color:var(--foreground)] sm:text-5xl">
@@ -116,19 +119,19 @@ export default function ProductsPage({
               <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
                 <Heart className="h-5 w-5 text-[color:var(--accent-dark)]" />
                 <p className="mt-3 text-sm font-semibold text-[color:var(--foreground)]">
-                  Thoughtful gifting
+                  {copy.detail.cards[0].title}
                 </p>
                 <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                  Designed to look elegant for graduation, birthdays, thank-you gifts, and keepsakes.
+                  {copy.detail.cards[0].description}
                 </p>
               </div>
               <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
                 <ShieldCheck className="h-5 w-5 text-[color:var(--accent-dark)]" />
                 <p className="mt-3 text-sm font-semibold text-[color:var(--foreground)]">
-                  Gift-ready finish
+                  {copy.detail.cards[1].title}
                 </p>
                 <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                  Clean bouquet wrapping, polished presentation, and details that feel premium in hand.
+                  {copy.detail.cards[1].description}
                 </p>
               </div>
             </div>
@@ -136,10 +139,10 @@ export default function ProductsPage({
             <div className="mt-8 flex flex-wrap gap-3">
               <button onClick={() => onAddToCart(selectedProduct)} className="btn-primary">
                 <ShoppingCart className="h-4 w-4" />
-                Add to cart
+                {copy.detail.addToCart}
               </button>
               <button onClick={onBack} className="btn-secondary">
-                Keep browsing
+                {copy.detail.keepBrowsing}
               </button>
             </div>
           </div>
@@ -154,11 +157,11 @@ export default function ProductsPage({
     <div className="section-shell">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <span className="section-kicker">Product page</span>
-          <h1 className="section-title">Handmade bunches for gifting, milestones, and everyday sweetness.</h1>
+          <span className="section-kicker">{copy.listing.kicker}</span>
+          <h1 className="section-title">{copy.listing.title}</h1>
         </div>
         <p className="max-w-xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-          Browse polished product cards, view multiple angles, and add pieces to cart with confidence.
+          {copy.listing.copy}
         </p>
       </div>
 
@@ -175,8 +178,8 @@ export default function ProductsPage({
       {bestSellers.length > 0 && (
         <section className="mt-12">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">Best sellers</h2>
-            <span className="text-sm text-[color:var(--muted)]">The bouquets customers pick most often</span>
+            <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">{copy.listing.bestSellersTitle}</h2>
+            <span className="text-sm text-[color:var(--muted)]">{copy.listing.bestSellersCopy}</span>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -198,7 +201,7 @@ export default function ProductsPage({
                     <div className="px-2 pb-2 pt-5">
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-2xl text-[color:var(--foreground)]">{product.name}</h3>
-                        <span className="pill">Best seller</span>
+                        <span className="pill">{copy.listing.bestSellerPill}</span>
                       </div>
                       <p className="mt-2 text-sm text-[color:var(--muted)]">{product.category}</p>
                       <p className="mt-4 text-lg font-semibold text-[color:var(--accent-dark)]">
@@ -206,7 +209,7 @@ export default function ProductsPage({
                       </p>
                       {inCartCount > 0 && (
                         <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                          In cart: {inCartCount}
+                          {copy.listing.inCartLabel(inCartCount)}
                         </p>
                       )}
                     </div>
@@ -220,15 +223,15 @@ export default function ProductsPage({
 
       <section className="mt-14">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">All products</h2>
-          <span className="text-sm text-[color:var(--muted)]">{products.length} available</span>
+          <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">{copy.listing.allProductsTitle}</h2>
+          <span className="text-sm text-[color:var(--muted)]">{copy.listing.availableLabel(products.length)}</span>
         </div>
 
         {products.length === 0 ? (
           <div className="surface-card p-10 text-center">
-            <h3 className="text-3xl text-[color:var(--foreground)]">No products yet</h3>
+            <h3 className="text-3xl text-[color:var(--foreground)]">{copy.listing.emptyTitle}</h3>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
-              Add your first bouquets from the admin panel and they will appear here in the same card layout.
+              {copy.listing.emptyCopy}
             </p>
           </div>
         ) : (
@@ -254,7 +257,7 @@ export default function ProductsPage({
                           <h3 className="text-2xl text-[color:var(--foreground)]">{product.name}</h3>
                           <p className="mt-1 text-sm text-[color:var(--muted)]">{product.category}</p>
                         </div>
-                        {product.isBestSeller && <span className="pill">Popular</span>}
+                        {product.isBestSeller && <span className="pill">{copy.listing.popularPill}</span>}
                       </div>
                       <p className="mt-3 line-clamp-3 text-sm leading-7 text-[color:var(--muted)]">
                         {product.description}
@@ -265,7 +268,7 @@ export default function ProductsPage({
                         </p>
                         {inCartCount > 0 && (
                           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                            {inCartCount} in cart
+                            {copy.listing.inCartLabel(inCartCount)}
                           </span>
                         )}
                       </div>

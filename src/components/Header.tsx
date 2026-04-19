@@ -1,25 +1,31 @@
 import { Menu, Settings2, ShoppingBag, X } from 'lucide-react';
 import { useState } from 'react';
+import { Locale, SiteCopy } from '../content';
 
 interface HeaderProps {
   cartItemCount: number;
   onNavigate: (page: string) => void;
   onOpenAdmin: () => void;
   currentPage: string;
+  locale: Locale;
+  onToggleLocale: () => void;
+  copy: SiteCopy['header'];
 }
-
-const navItems = [
-  { id: 'home', label: 'Home' },
-  { id: 'products', label: 'Shop' },
-];
 
 export default function Header({
   cartItemCount,
   onNavigate,
   onOpenAdmin,
   currentPage,
+  locale,
+  onToggleLocale,
+  copy,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navItems = [
+    { id: 'home', label: copy.nav.home },
+    { id: 'products', label: copy.nav.products },
+  ];
 
   const handleNavigate = (page: string) => {
     onNavigate(page);
@@ -38,9 +44,9 @@ export default function Header({
               F
             </div>
             <div>
-              <p className="brand-heading text-2xl text-[color:var(--foreground)]">Flourish</p>
+              <p className="brand-heading text-2xl text-[color:var(--foreground)]">{copy.brandName}</p>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                Handmade keepsakes
+                {copy.brandTagline}
               </p>
             </div>
           </button>
@@ -69,15 +75,22 @@ export default function Header({
 
           <div className="hidden items-center gap-3 md:flex">
             <button
+              onClick={onToggleLocale}
+              aria-label={copy.languageToggleLabel}
+              className="inline-flex h-12 items-center rounded-full border border-[color:var(--line)] bg-white/85 px-4 text-sm font-semibold text-[color:var(--foreground)] transition hover:-translate-y-0.5"
+            >
+              {locale === 'en' ? 'VI' : 'EN'}
+            </button>
+            <button
               onClick={onOpenAdmin}
-              aria-label="Open admin settings"
+              aria-label={copy.adminAriaLabel}
               className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/85 text-[color:var(--foreground)] transition hover:-translate-y-0.5"
             >
               <Settings2 className="h-4 w-4" />
             </button>
             <button
               onClick={() => handleNavigate('cart')}
-              aria-label="Open cart"
+              aria-label={copy.cartAriaLabel}
               className={`relative inline-flex h-12 items-center gap-2 rounded-full border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 ${
                 currentPage === 'cart' || currentPage === 'checkout'
                   ? 'border-[color:var(--foreground)] bg-[color:var(--foreground)] text-white'
@@ -95,15 +108,22 @@ export default function Header({
 
           <div className="flex items-center gap-2 md:hidden">
             <button
+              onClick={onToggleLocale}
+              aria-label={copy.languageToggleLabel}
+              className="inline-flex h-12 items-center rounded-full border border-[color:var(--line)] bg-white/80 px-3 text-sm font-semibold text-[color:var(--foreground)]"
+            >
+              {locale === 'en' ? 'VI' : 'EN'}
+            </button>
+            <button
               onClick={onOpenAdmin}
-              aria-label="Open admin settings"
+              aria-label={copy.adminAriaLabel}
               className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
             >
               <Settings2 className="h-4 w-4" />
             </button>
             <button
               onClick={() => handleNavigate('cart')}
-              aria-label="Open cart"
+              aria-label={copy.cartAriaLabel}
               className={`relative inline-flex h-12 w-12 items-center justify-center rounded-full border text-[color:var(--foreground)] ${
                 currentPage === 'cart' || currentPage === 'checkout'
                   ? 'border-[color:var(--foreground)] bg-[color:var(--foreground)] text-white'
