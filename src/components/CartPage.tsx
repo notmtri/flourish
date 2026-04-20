@@ -73,7 +73,7 @@ export default function CartPage({
                 <ImageWithFallback
                   src={item.product.images[0] || siteMedia.products.fallbackImage}
                   alt={item.product.name}
-                  className="h-28 w-full rounded-[22px] object-cover sm:w-28"
+                  className="aspect-square w-full rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,232,225,0.9))] object-contain p-3 sm:w-28"
                 />
 
                 <div className="flex-1">

@@ -70,11 +70,13 @@ export default function ProductsPage({
         <div className="mt-6 grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-4">
             <div className="surface-card-strong overflow-hidden p-3">
-              <ImageWithFallback
-                src={galleryImages[selectedImageIndex] || fallbackImage}
-                alt={selectedProduct.name}
-                className="h-[320px] w-full rounded-[24px] object-cover sm:h-[480px]"
-              />
+              <div className="flex aspect-square items-center justify-center rounded-[24px] bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(244,232,225,0.92))] p-4">
+                <ImageWithFallback
+                  src={galleryImages[selectedImageIndex] || fallbackImage}
+                  alt={selectedProduct.name}
+                  className="h-full w-full rounded-[20px] object-contain"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-4 gap-3">
@@ -91,7 +93,7 @@ export default function ProductsPage({
                   <ImageWithFallback
                     src={image}
                     alt={copy.detail.galleryAlt(selectedProduct.name, index)}
-                    className="h-20 w-full rounded-[16px] object-cover"
+                    className="aspect-square w-full rounded-[16px] bg-[rgba(255,255,255,0.92)] object-contain p-2"
                   />
                 </button>
               ))}
@@ -193,11 +195,13 @@ export default function ProductsPage({
                   className="surface-card group overflow-hidden p-3 transition duration-200 hover:-translate-y-1"
                 >
                   <button onClick={() => onViewProduct(product)} className="block w-full text-left">
-                    <ImageWithFallback
-                      src={product.images[0] || fallbackImage}
-                      alt={product.name}
-                      className="h-56 w-full rounded-[22px] object-cover"
-                    />
+                    <div className="flex aspect-square items-center justify-center rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,232,225,0.9))] p-4">
+                      <ImageWithFallback
+                        src={product.images[0] || fallbackImage}
+                        alt={product.name}
+                        className="h-full w-full rounded-[18px] object-contain"
+                      />
+                    </div>
                     <div className="px-2 pb-2 pt-5">
                       <div className="flex items-center justify-between gap-3">
                         <h3 className="text-2xl text-[color:var(--foreground)]">{product.name}</h3>
@@ -246,11 +250,13 @@ export default function ProductsPage({
                   className="surface-card group overflow-hidden p-3 transition duration-200 hover:-translate-y-1"
                 >
                   <button onClick={() => onViewProduct(product)} className="block w-full text-left">
-                    <ImageWithFallback
-                      src={product.images[0] || fallbackImage}
-                      alt={product.name}
-                      className="h-56 w-full rounded-[22px] object-cover"
-                    />
+                    <div className="flex aspect-square items-center justify-center rounded-[22px] bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,232,225,0.9))] p-4">
+                      <ImageWithFallback
+                        src={product.images[0] || fallbackImage}
+                        alt={product.name}
+                        className="h-full w-full rounded-[18px] object-contain"
+                      />
+                    </div>
                     <div className="px-2 pb-2 pt-5">
                       <div className="flex items-start justify-between gap-3">
                         <div>
