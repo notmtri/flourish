@@ -1,4 +1,4 @@
-import { Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BrandSettings } from '../content/siteMedia';
 import { formatCurrency, formatOrderDate } from '../utils/format';
@@ -44,6 +44,7 @@ interface AdminPanelProps {
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
+  onDeleteOrder: (id: string, orderNumber: string) => void;
   onUpdateOrderStatus: (id: string, status: string, paymentStatus: string) => void;
   onUpdateBrandSettings: (settings: BrandSettings) => void;
   onLogout: () => void;
@@ -53,6 +54,14 @@ function StatusPill({ children }: { children: string }) {
   return <span className="pill">{children.replaceAll('_', ' ')}</span>;
 }
 
+function isPastOrder(order: Order) {
+  return order.status === 'delivered' || order.status === 'cancelled';
+}
+
+function needsAttention(order: Order) {
+  return order.paymentStatus === 'awaiting_verification' || order.status === 'pending';
+}
+
 export default function AdminPanel({
   products,
   orders,
@@ -60,6 +69,7 @@ export default function AdminPanel({
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
+  onDeleteOrder,
   onUpdateOrderStatus,
   onUpdateBrandSettings,
   onLogout,
@@ -77,6 +87,33 @@ export default function AdminPanel({
     isBestSeller: false,
   });
 
+  const ongoingOrders = useMemo(
+    () =>
+      orders
+        .filter((order) => !isPastOrder(order))
+        .sort((left, right) => {
+          const leftScore = Number(needsAttention(left));
+          const rightScore = Number(needsAttention(right));
+          if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+          }
+
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+        }),
+    [orders],
+  );
+
+  const pastOrders = useMemo(
+    () =>
+      orders
+        .filter((order) => isPastOrder(order))
+        .sort(
+          (left, right) =>
+            new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+        ),
+    [orders],
+  );
+
   const orderStats = useMemo(
     () => [
       {
@@ -85,9 +122,14 @@ export default function AdminPanel({
         icon: Package,
       },
       {
-        label: 'Orders',
-        value: String(orders.length),
+        label: 'Ongoing / awaiting',
+        value: String(ongoingOrders.length),
         icon: ShoppingBag,
+      },
+      {
+        label: 'Past orders',
+        value: String(pastOrders.length),
+        icon: CheckCircle2,
       },
       {
         label: 'Awaiting payment review',
@@ -97,7 +139,7 @@ export default function AdminPanel({
         icon: ShoppingBag,
       },
     ],
-    [orders, products.length],
+    [ongoingOrders.length, orders, pastOrders.length, products.length],
   );
 
   const resetForm = () => {
@@ -148,6 +190,182 @@ export default function AdminPanel({
       isBestSeller: product.isBestSeller,
     });
     setShowProductForm(true);
+  };
+
+  const handleMarkOrderFinished = (order: Order) => {
+    const nextPaymentStatus =
+      order.paymentMethod === 'QR' && order.paymentStatus !== 'verified'
+        ? 'verified'
+        : order.paymentStatus;
+    onUpdateOrderStatus(order.id, 'delivered', nextPaymentStatus);
+  };
+
+  const renderOrderCard = (order: Order) => {
+    const showFinishAction = !isPastOrder(order);
+
+    return (
+      <article key={order.id} className="surface-card-strong p-6 sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex flex-wrap gap-2">
+              <StatusPill>{order.status}</StatusPill>
+              <StatusPill>{order.paymentStatus}</StatusPill>
+              <StatusPill>{order.paymentMethod}</StatusPill>
+              {needsAttention(order) && <StatusPill>needs attention</StatusPill>}
+            </div>
+            <h3 className="mt-4 text-3xl text-[color:var(--foreground)]">{order.orderNumber}</h3>
+            <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+              {formatOrderDate(order.createdAt)}
+            </p>
+          </div>
+
+          <div className="text-left lg:text-right">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              Order total
+            </p>
+            <p className="mt-2 text-3xl font-bold text-[color:var(--accent-dark)]">
+              {formatCurrency(order.totalAmount)}
+            </p>
+            {showFinishAction && (
+              <button
+                onClick={() => handleMarkOrderFinished(order)}
+                className="btn-primary mt-4"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Mark finished
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-4">
+            <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                Customer
+              </p>
+              <p className="mt-3 text-lg font-semibold text-[color:var(--foreground)]">
+                {order.customerName}
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">{order.phone}</p>
+              <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{order.address}</p>
+            </div>
+
+            <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
+              <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                Items
+              </p>
+              <ul className="mt-4 space-y-3 text-sm text-[color:var(--foreground)]">
+                {order.items.map((item, index) => (
+                  <li key={`${item.product.name}-${index}`} className="flex justify-between gap-4">
+                    <span>
+                      {item.product.name} x {item.quantity}
+                    </span>
+                    <span>{formatCurrency(item.product.price * item.quantity)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            <div className="rounded-[24px] border border-[color:var(--line)] bg-[rgba(203,111,134,0.06)] p-5">
+              <p className="text-sm font-semibold text-[color:var(--foreground)]">Recommended workflow</p>
+              <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                Verify QR payments first, move the order to processing while preparing it, then use
+                the finish button once delivery is complete.
+              </p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <label className="field-label">Order status</label>
+                <select
+                  value={order.status}
+                  onChange={(event) =>
+                    onUpdateOrderStatus(
+                      order.id,
+                      event.target.value,
+                      order.paymentStatus,
+                    )
+                  }
+                  className="input-field"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="field-label">Payment status</label>
+                <select
+                  value={order.paymentStatus}
+                  onChange={(event) =>
+                    onUpdateOrderStatus(order.id, order.status, event.target.value)
+                  }
+                  className="input-field"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="awaiting_verification">Awaiting verification</option>
+                  <option value="verified">Verified</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {order.paymentStatus === 'awaiting_verification' && (
+                <button
+                  onClick={() => onUpdateOrderStatus(order.id, order.status, 'verified')}
+                  className="btn-secondary"
+                >
+                  Verify payment
+                </button>
+              )}
+              {order.status === 'pending' && (
+                <button
+                  onClick={() => onUpdateOrderStatus(order.id, 'processing', order.paymentStatus)}
+                  className="btn-secondary"
+                >
+                  Start processing
+                </button>
+              )}
+              {order.status === 'processing' && (
+                <button
+                  onClick={() => onUpdateOrderStatus(order.id, 'shipped', order.paymentStatus)}
+                  className="btn-secondary"
+                >
+                  Mark shipped
+                </button>
+              )}
+              <button
+                onClick={() => onDeleteOrder(order.id, order.orderNumber)}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-red-50 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete order
+              </button>
+            </div>
+
+            {order.paymentScreenshot && (
+              <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                  Payment screenshot
+                </p>
+                <ImageWithFallback
+                  src={order.paymentScreenshot}
+                  alt="Payment proof"
+                  className="mt-4 max-h-72 w-full rounded-[18px] object-contain"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </article>
+    );
   };
 
   return (
@@ -215,7 +433,7 @@ export default function AdminPanel({
           </div>
         </section>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {orderStats.map(({ label, value, icon: Icon }) => (
             <div key={label} className="surface-card p-6">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(203,111,134,0.12)] text-[color:var(--accent-dark)]">
@@ -443,118 +661,52 @@ export default function AdminPanel({
                 </p>
               </div>
             ) : (
-              <div className="space-y-5">
-                {orders.map((order) => (
-                  <article key={order.id} className="surface-card-strong p-6 sm:p-8">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
-                        <div className="flex flex-wrap gap-2">
-                          <StatusPill>{order.status}</StatusPill>
-                          <StatusPill>{order.paymentStatus}</StatusPill>
-                          <StatusPill>{order.paymentMethod}</StatusPill>
-                        </div>
-                        <h3 className="mt-4 text-3xl text-[color:var(--foreground)]">{order.orderNumber}</h3>
-                        <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                          {formatOrderDate(order.createdAt)}
-                        </p>
-                      </div>
-
-                      <div className="text-left lg:text-right">
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                          Order total
-                        </p>
-                        <p className="mt-2 text-3xl font-bold text-[color:var(--accent-dark)]">
-                          {formatCurrency(order.totalAmount)}
-                        </p>
-                      </div>
+              <div className="space-y-10">
+                <div>
+                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-2xl text-[color:var(--foreground)]">Ongoing / awaiting orders</h3>
+                      <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                        Keep work-in-progress orders here until they are delivered or cancelled.
+                      </p>
                     </div>
+                    <span className="pill">{ongoingOrders.length} open</span>
+                  </div>
 
-                    <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-                      <div className="space-y-4">
-                        <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                            Customer
-                          </p>
-                          <p className="mt-3 text-lg font-semibold text-[color:var(--foreground)]">
-                            {order.customerName}
-                          </p>
-                          <p className="mt-1 text-sm text-[color:var(--muted)]">{order.phone}</p>
-                          <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{order.address}</p>
-                        </div>
-
-                        <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
-                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                            Items
-                          </p>
-                          <ul className="mt-4 space-y-3 text-sm text-[color:var(--foreground)]">
-                            {order.items.map((item, index) => (
-                              <li key={`${item.product.name}-${index}`} className="flex justify-between gap-4">
-                                <span>
-                                  {item.product.name} x {item.quantity}
-                                </span>
-                                <span>{formatCurrency(item.product.price * item.quantity)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-
-                      <div className="space-y-5">
-                        <div className="grid gap-5 md:grid-cols-2">
-                          <div>
-                            <label className="field-label">Order status</label>
-                            <select
-                              value={order.status}
-                              onChange={(event) =>
-                                onUpdateOrderStatus(
-                                  order.id,
-                                  event.target.value,
-                                  order.paymentStatus,
-                                )
-                              }
-                              className="input-field"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="processing">Processing</option>
-                              <option value="shipped">Shipped</option>
-                              <option value="delivered">Delivered</option>
-                              <option value="cancelled">Cancelled</option>
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="field-label">Payment status</label>
-                            <select
-                              value={order.paymentStatus}
-                              onChange={(event) =>
-                                onUpdateOrderStatus(order.id, order.status, event.target.value)
-                              }
-                              className="input-field"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="awaiting_verification">Awaiting verification</option>
-                              <option value="verified">Verified</option>
-                              <option value="failed">Failed</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        {order.paymentScreenshot && (
-                          <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
-                            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                              Payment screenshot
-                            </p>
-                            <ImageWithFallback
-                              src={order.paymentScreenshot}
-                              alt="Payment proof"
-                              className="mt-4 max-h-72 w-full rounded-[18px] object-contain"
-                            />
-                          </div>
-                        )}
-                      </div>
+                  {ongoingOrders.length === 0 ? (
+                    <div className="surface-card p-8 text-center">
+                      <h4 className="text-2xl text-[color:var(--foreground)]">No active orders</h4>
+                      <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
+                        New checkouts, payment reviews, and in-progress deliveries will appear here.
+                      </p>
                     </div>
-                  </article>
-                ))}
+                  ) : (
+                    <div className="space-y-5">{ongoingOrders.map(renderOrderCard)}</div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-2xl text-[color:var(--foreground)]">Past orders</h3>
+                      <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                        Delivered and cancelled orders move here automatically so the active queue stays clean.
+                      </p>
+                    </div>
+                    <span className="pill">{pastOrders.length} archived</span>
+                  </div>
+
+                  {pastOrders.length === 0 ? (
+                    <div className="surface-card p-8 text-center">
+                      <h4 className="text-2xl text-[color:var(--foreground)]">No past orders yet</h4>
+                      <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
+                        Finished and cancelled orders will collect here once you close them out.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">{pastOrders.map(renderOrderCard)}</div>
+                  )}
+                </div>
               </div>
             )}
           </section>

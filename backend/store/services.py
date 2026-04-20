@@ -8,6 +8,7 @@ from datetime import datetime
 from urllib import error, request
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,36 @@ class VietQrProviderError(VietQrError):
 
 class VietQrRequestError(VietQrError):
     status_code = 400
+
+
+def sync_admin_user_from_env(*, login_identifier: str = ""):
+    username = os.getenv("ADMIN_USERNAME", "").strip()
+    password = os.getenv("ADMIN_PASSWORD", "").strip()
+    email = os.getenv("ADMIN_EMAIL", "").strip()
+
+    if not username or not password:
+        return None
+
+    normalized_identifier = login_identifier.strip().lower()
+    allowed_identifiers = {username.lower()}
+    if email:
+        allowed_identifiers.add(email.lower())
+
+    if normalized_identifier and normalized_identifier not in allowed_identifiers:
+        return None
+
+    User = get_user_model()
+    user, created = User.objects.get_or_create(username=username)
+
+    if email:
+        user.email = email
+
+    user.is_staff = True
+    user.is_superuser = True
+    user.is_active = True
+    user.set_password(password)
+    user.save()
+    return user, created
 
 
 def send_order_notification_email(order) -> bool:

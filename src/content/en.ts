@@ -25,21 +25,21 @@ export const en: SiteCopy = {
     contact: {
       email: 'hello@flourish.vn',
       phone: '+84 123 456 789',
-      location: 'Ho Chi Minh City, Vietnam',
+      location: 'Nha Trang, Vietnam',
     },
     bottomLine: 'Handmade keepsakes for moments worth holding onto.',
-    bottomTagline: 'Designed for gifting, celebration, and thoughtful delivery.',
+    bottomTagline: 'Designed for gifting, celebration, and thoughtful messages.',
   },
   home: {
-    heroKicker: 'Flowers that never fade',
+    heroKicker: 'For everlasting memories',
     heroTitle: 'Flowers that never fade.',
     heroCopy:
       'Handmade velvet wire flowers designed to last beyond every special moment. Flourish creates warm, photo-ready bouquets for graduation, gifting, and celebrations that deserve something lasting.',
     ctaPrimary: 'Shop now',
-    ctaSecondary: 'Handmade in Ho Chi Minh City',
+    ctaSecondary: 'Handmade in Nha Trang',
     stats: [
       { value: '100%', label: 'Hand-shaped stems and bouquet wrapping' },
-      { value: '3-5', label: 'Angles shown per product for better buying confidence' },
+      { value: '7749', label: 'Ways to customize your bouquet as you wish' },
       { value: 'Lasting', label: 'A bouquet that stays with the memory, not just the moment' },
     ],
     signature: {
@@ -49,7 +49,7 @@ export const en: SiteCopy = {
     },
     brandStory: {
       kicker: 'Brand story',
-      title: 'A bouquet that keeps the feeling alive.',
+      title: 'A bouquet that keeps the feelings alive.',
       paragraphs: [
         'We believe that some moments deserve more than flowers that fade away.',
         'Each of our velvet wire flowers is carefully handcrafted to capture emotions that last, whether it is love, friendship, gratitude, or celebration.',
@@ -57,16 +57,16 @@ export const en: SiteCopy = {
       ],
     },
     whyFlourish: {
-      kicker: 'Why Flourish',
+      kicker: 'Why Flourish?',
       title: 'Consistent, thoughtful, gift-ready.',
-      copy: 'The experience should feel calm and polished from browsing to checkout. We design the site with that same care.',
+      copy: '',
       features: [
         {
           title: 'Made to last',
           description: 'Each bunch is designed to stay beautiful well beyond the day you gift it.',
         },
         {
-          title: 'Handmade with intention',
+          title: 'Handmade with love',
           description: 'Every stem is shaped and wrapped by hand so the final bouquet feels personal.',
         },
         {
@@ -95,15 +95,15 @@ export const en: SiteCopy = {
     },
     reviews: {
       kicker: 'Customer feedback',
-      title: 'A rolling wall of kind words.',
-      copy: 'Social proof matters most when it feels personal. These cards keep the page lively without overwhelming the rest of the brand.',
+      title: 'Word from our customers',
+      copy: '',
     },
   },
   products: {
     listing: {
       kicker: 'Product page',
       title: 'Handmade bunches for gifting, milestones, and everyday sweetness.',
-      copy: 'Browse polished product cards, view multiple angles, and add pieces to cart with confidence.',
+      copy: '',
       bestSellersTitle: 'Best sellers',
       bestSellersCopy: 'The bouquets customers pick most often',
       allProductsTitle: 'All products',
@@ -226,6 +226,8 @@ export const en: SiteCopy = {
     addProductFailed: 'Failed to add product.',
     updateProductFailed: 'Failed to update product.',
     deleteProductFailed: 'Failed to delete product.',
+    deleteOrderConfirm: (orderNumber) => `Are you sure you want to delete order ${orderNumber}?`,
+    deleteOrderFailed: 'Failed to delete order.',
     updateOrderFailed: 'Failed to update order.',
     backendLoadingTitle: 'Loading storefront data',
     backendLoadingCopy: 'Connecting to the backend and preparing products, reviews, and checkout services.',

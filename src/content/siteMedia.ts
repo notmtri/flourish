@@ -7,12 +7,12 @@ export interface BrandSettings {
 }
 
 export const defaultBrandSettings: BrandSettings = {
-  logoUrl: '',
+  logoUrl: 'https://69e4b9432d9a763bcd9bf255.imgix.net/flourish.png',
 };
 
 export const siteMedia = {
   products: {
-    fallbackImage: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900',
+    fallbackImage: 'https://69e4b9432d9a763bcd9bf255.imgix.net/fallback.png',
   },
   home: {
     heroMain: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900',

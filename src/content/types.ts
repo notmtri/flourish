@@ -200,6 +200,8 @@ export interface SiteCopy {
     addProductFailed: string;
     updateProductFailed: string;
     deleteProductFailed: string;
+    deleteOrderConfirm: (orderNumber: string) => string;
+    deleteOrderFailed: string;
     updateOrderFailed: string;
     backendLoadingTitle: string;
     backendLoadingCopy: string;

@@ -441,6 +441,30 @@ export default function App() {
     }
   };
 
+  const handleDeleteOrder = async (id: string, orderNumber: string) => {
+    if (!window.confirm(copy.app.deleteOrderConfirm(orderNumber))) {
+      return;
+    }
+
+    try {
+      const response = await fetch(getApiUrl(`/orders/${id}/`), {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Token ${adminToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete order');
+      }
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert(copy.app.deleteOrderFailed);
+    }
+  };
+
   const handleAdminLogin = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -537,6 +561,7 @@ export default function App() {
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
         onDeleteProduct={handleDeleteProduct}
+        onDeleteOrder={handleDeleteOrder}
         onUpdateOrderStatus={handleUpdateOrderStatus}
         onUpdateBrandSettings={setBrandSettings}
         onLogout={() => {

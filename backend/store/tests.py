@@ -126,6 +126,106 @@ class OrderApiTests(TestCase):
         self.assertEqual(int(order.total_amount), 300000)
 
 
+class AdminLoginApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient(HTTP_HOST="localhost")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "StrongPass123!",
+            "ADMIN_EMAIL": "admin@example.com",
+        },
+        clear=False,
+    )
+    def test_login_syncs_env_admin_and_returns_token(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "admin", "password": "StrongPass123!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+
+        User = get_user_model()
+        user = User.objects.get(username="admin")
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.email, "admin@example.com")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "ResetPass456!",
+            "ADMIN_EMAIL": "admin@example.com",
+        },
+        clear=False,
+    )
+    def test_login_accepts_configured_admin_email(self):
+        User = get_user_model()
+        User.objects.create_user(
+            username="admin",
+            password="outdated-password",
+            is_staff=False,
+            is_superuser=False,
+            email="old@example.com",
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            {"username": "admin@example.com", "password": "ResetPass456!"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("token", response.data)
+
+        user = User.objects.get(username="admin")
+        self.assertTrue(user.check_password("ResetPass456!"))
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+        self.assertEqual(user.email, "admin@example.com")
+
+
+class OrderAdminApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient(HTTP_HOST="localhost")
+        User = get_user_model()
+        self.admin = User.objects.create_user(
+            username="admin",
+            password="StrongPass123!",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.order = Order.objects.create(
+            order_number="FLR-DELETE-001",
+            customer_name="Delete Me",
+            address="123 Test Street",
+            phone="0900000000",
+            payment_method=Order.PaymentMethod.COD,
+            status=Order.Status.PENDING,
+            payment_status=Order.PaymentStatus.PENDING,
+            total_amount=100000,
+        )
+
+    def test_delete_order_requires_admin_auth(self):
+        response = self.client.delete(f"/api/orders/{self.order.id}/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue(Order.objects.filter(id=self.order.id).exists())
+
+    def test_admin_can_delete_order(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.delete(f"/api/orders/{self.order.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Order.objects.filter(id=self.order.id).exists())
+
+
 class SyncAdminUserCommandTests(TestCase):
     @patch.dict(
         "os.environ",

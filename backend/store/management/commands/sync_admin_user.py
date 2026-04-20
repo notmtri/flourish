@@ -1,7 +1,7 @@
 import os
 
-from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
+from store.services import sync_admin_user_from_env
 
 
 class Command(BaseCommand):
@@ -10,7 +10,6 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         username = os.getenv("ADMIN_USERNAME", "").strip()
         password = os.getenv("ADMIN_PASSWORD", "").strip()
-        email = os.getenv("ADMIN_EMAIL", "").strip()
 
         if not username:
             raise CommandError("Missing ADMIN_USERNAME.")
@@ -18,17 +17,10 @@ class Command(BaseCommand):
         if not password:
             raise CommandError("Missing ADMIN_PASSWORD.")
 
-        User = get_user_model()
-        user, created = User.objects.get_or_create(username=username)
-
-        if email:
-            user.email = email
-
-        user.is_staff = True
-        user.is_superuser = True
-        user.is_active = True
-        user.set_password(password)
-        user.save()
+        synced_user = sync_admin_user_from_env(login_identifier=username)
+        if synced_user is None:
+            raise CommandError("Unable to sync admin user from environment.")
+        _, created = synced_user
 
         action = "Created" if created else "Updated"
         self.stdout.write(self.style.SUCCESS(f"{action} admin user '{username}'"))

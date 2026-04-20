@@ -18,6 +18,7 @@ from .serializers import (
 from .services import (
     VietQrError,
     generate_preview_order_number,
+    sync_admin_user_from_env,
     generate_vietqr,
     send_order_notification_email,
 )
@@ -40,10 +41,12 @@ def health(request):
 
 @api_view(["POST"])
 def admin_login(request):
-    username = request.data.get("username", "")
+    username = request.data.get("username", "").strip()
     password = request.data.get("password", "")
+    synced_user = sync_admin_user_from_env(login_identifier=username)
+    auth_username = synced_user[0].username if synced_user else username
 
-    user = authenticate(username=username, password=password)
+    user = authenticate(username=auth_username, password=password)
     if not user:
         return Response({"error": "Invalid username or password."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -193,7 +196,7 @@ def orders_collection(request):
     return Response({"order": OrderSerializer(order).data}, status=status.HTTP_201_CREATED)
 
 
-@api_view(["GET", "PUT"])
+@api_view(["GET", "PUT", "DELETE"])
 def order_detail(request, pk):
     if not is_admin(request):
         return admin_required_response()
@@ -202,6 +205,10 @@ def order_detail(request, pk):
 
     if request.method == "GET":
         return Response({"order": OrderSerializer(order).data})
+
+    if request.method == "DELETE":
+        order.delete()
+        return Response({"success": True}, status=status.HTTP_200_OK)
 
     serializer = OrderSerializer(order, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
