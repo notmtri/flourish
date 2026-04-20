@@ -205,6 +205,22 @@ export interface SiteCopy {
     updateOrderFailed: string;
     backendLoadingTitle: string;
     backendLoadingCopy: string;
+    loading: {
+      placingOrderTitle: string;
+      placingOrderCopy: string;
+      generatingQrTitle: string;
+      generatingQrCopy: string;
+      adminLoginTitle: string;
+      adminLoginCopy: string;
+      savingProductTitle: string;
+      savingProductCopy: string;
+      deletingProductTitle: string;
+      deletingProductCopy: string;
+      updatingOrderTitle: string;
+      updatingOrderCopy: string;
+      deletingOrderTitle: string;
+      deletingOrderCopy: string;
+    };
     adminLogin: {
       kicker: string;
       title: string;

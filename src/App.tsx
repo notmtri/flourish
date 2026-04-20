@@ -78,6 +78,7 @@ const validPages: Page[] = ['home', 'products', 'cart', 'checkout', 'admin', 'or
 const localApiBase = 'http://127.0.0.1:8000/api';
 
 export default function App() {
+  const copy = content;
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [brandSettings, setBrandSettings] = useState<BrandSettings>(() => {
     const savedSettings = localStorage.getItem(brandSettingsStorageKey);
@@ -106,13 +107,17 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [backendTaskCount, setBackendTaskCount] = useState(0);
+  const [backendTaskLabel, setBackendTaskLabel] = useState<{
+    title: string;
+    copy: string;
+  } | null>(null);
 
   const configuredApiBase = process.env.REACT_APP_API_BASE?.trim().replace(/\/+$/, '');
   const isLocalHost =
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const apiBase = configuredApiBase || (isLocalHost ? localApiBase : '');
   const isAdmin = Boolean(adminToken);
-  const copy = content;
 
   useEffect(() => {
     localStorage.setItem(brandSettingsStorageKey, JSON.stringify(brandSettings));
@@ -138,6 +143,27 @@ export default function App() {
     }
 
     return `${action} failed.`;
+  };
+
+  const runWithBackendTask = async <T,>(
+    title: string,
+    taskCopy: string,
+    task: () => Promise<T>,
+  ) => {
+    setBackendTaskLabel({ title, copy: taskCopy });
+    setBackendTaskCount((count) => count + 1);
+
+    try {
+      return await task();
+    } finally {
+      setBackendTaskCount((count) => {
+        const nextCount = Math.max(0, count - 1);
+        if (nextCount === 0) {
+          setBackendTaskLabel(null);
+        }
+        return nextCount;
+      });
+    }
   };
 
   useEffect(() => {
@@ -283,35 +309,41 @@ export default function App() {
     paymentScreenshot?: string;
   }) => {
     try {
-      const response = await fetch(getApiUrl('/orders/'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await runWithBackendTask(
+        copy.app.loading.placingOrderTitle,
+        copy.app.loading.placingOrderCopy,
+        async () => {
+          const response = await fetch(getApiUrl('/orders/'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...orderData,
+              items: cart,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create order');
+          }
+
+          const data = await response.json();
+
+          if (orderData.paymentScreenshot) {
+            await fetch(getApiUrl(`/orders/${data.order.id}/payment/`), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ screenshot: orderData.paymentScreenshot }),
+            });
+          }
+
+          setCart([]);
+          setCurrentPage('order-success');
         },
-        body: JSON.stringify({
-          ...orderData,
-          items: cart,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create order');
-      }
-
-      const data = await response.json();
-
-      if (orderData.paymentScreenshot) {
-        await fetch(getApiUrl(`/orders/${data.order.id}/payment/`), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ screenshot: orderData.paymentScreenshot }),
-        });
-      }
-
-      setCart([]);
-      setCurrentPage('order-success');
+      );
     } catch (error) {
       console.error('Error placing order:', error);
       alert(copy.app.placeOrderFailed);
@@ -323,48 +355,60 @@ export default function App() {
     amount: number;
     orderNumber?: string;
   }) => {
-    const response = await fetch(getApiUrl('/payments/vietqr/preview/'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(input),
-    });
+    return runWithBackendTask(
+      copy.app.loading.generatingQrTitle,
+      copy.app.loading.generatingQrCopy,
+      async () => {
+        const response = await fetch(getApiUrl('/payments/vietqr/preview/'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(input),
+        });
 
-    const data = await response.json();
-    if (!response.ok) {
-      if (response.status === 503 && data.orderNumber && data.transferContent && data.bankInfo) {
+        const data = await response.json();
+        if (!response.ok) {
+          if (response.status === 503 && data.orderNumber && data.transferContent && data.bankInfo) {
+            return {
+              ...data,
+              qrCode: data.qrCode || '',
+              qrDataURL: data.qrDataURL || '',
+              providerAvailable: false,
+            } as VietQrPreview;
+          }
+          throw new Error(data.error || 'Failed to generate VietQR code');
+        }
+
         return {
           ...data,
-          qrCode: data.qrCode || '',
-          qrDataURL: data.qrDataURL || '',
-          providerAvailable: false,
+          providerAvailable: true,
         } as VietQrPreview;
       }
-      throw new Error(data.error || 'Failed to generate VietQR code');
-    }
-
-    return {
-      ...data,
-      providerAvailable: true,
-    } as VietQrPreview;
+    );
   };
 
   const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
     try {
-      const response = await fetch(getApiUrl('/products/'), {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
+      await runWithBackendTask(
+        copy.app.loading.savingProductTitle,
+        copy.app.loading.savingProductCopy,
+        async () => {
+          const response = await fetch(getApiUrl('/products/'), {
+            method: 'POST',
+            headers: {
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify(productData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to add product');
+          }
+
+          await fetchProducts();
         },
-        body: JSON.stringify(productData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add product');
-      }
-
-      await fetchProducts();
+      );
     } catch (error) {
       console.error('Error adding product:', error);
       alert(copy.app.addProductFailed);
@@ -373,19 +417,25 @@ export default function App() {
 
   const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
     try {
-      const response = await fetch(getApiUrl(`/products/${id}/`), {
-        method: 'PUT',
-        headers: {
-          ...getAuthHeaders(),
+      await runWithBackendTask(
+        copy.app.loading.savingProductTitle,
+        copy.app.loading.savingProductCopy,
+        async () => {
+          const response = await fetch(getApiUrl(`/products/${id}/`), {
+            method: 'PUT',
+            headers: {
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify(productData),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update product');
+          }
+
+          await fetchProducts();
         },
-        body: JSON.stringify(productData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update product');
-      }
-
-      await fetchProducts();
+      );
     } catch (error) {
       console.error('Error updating product:', error);
       alert(copy.app.updateProductFailed);
@@ -398,18 +448,24 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(getApiUrl(`/products/${id}/`), {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Token ${adminToken}`,
+      await runWithBackendTask(
+        copy.app.loading.deletingProductTitle,
+        copy.app.loading.deletingProductCopy,
+        async () => {
+          const response = await fetch(getApiUrl(`/products/${id}/`), {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Token ${adminToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete product');
+          }
+
+          await fetchProducts();
         },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete product');
-      }
-
-      await fetchProducts();
+      );
     } catch (error) {
       console.error('Error deleting product:', error);
       alert(copy.app.deleteProductFailed);
@@ -422,19 +478,25 @@ export default function App() {
     paymentStatus: string,
   ) => {
     try {
-      const response = await fetch(getApiUrl(`/orders/${id}/`), {
-        method: 'PUT',
-        headers: {
-          ...getAuthHeaders(),
+      await runWithBackendTask(
+        copy.app.loading.updatingOrderTitle,
+        copy.app.loading.updatingOrderCopy,
+        async () => {
+          const response = await fetch(getApiUrl(`/orders/${id}/`), {
+            method: 'PUT',
+            headers: {
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify({ status, paymentStatus }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update order');
+          }
+
+          await fetchOrders();
         },
-        body: JSON.stringify({ status, paymentStatus }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update order');
-      }
-
-      await fetchOrders();
+      );
     } catch (error) {
       console.error('Error updating order:', error);
       alert(copy.app.updateOrderFailed);
@@ -447,27 +509,33 @@ export default function App() {
     }
 
     try {
-      let response = await fetch(getApiUrl(`/orders/${id}/`), {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Token ${adminToken}`,
+      await runWithBackendTask(
+        copy.app.loading.deletingOrderTitle,
+        copy.app.loading.deletingOrderCopy,
+        async () => {
+          let response = await fetch(getApiUrl(`/orders/${id}/`), {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Token ${adminToken}`,
+            },
+          });
+
+          if (response.status === 405) {
+            response = await fetch(getApiUrl(`/orders/${id}/delete/`), {
+              method: 'POST',
+              headers: {
+                Authorization: `Token ${adminToken}`,
+              },
+            });
+          }
+
+          if (!response.ok) {
+            throw new Error('Failed to delete order');
+          }
+
+          await fetchOrders();
         },
-      });
-
-      if (response.status === 405) {
-        response = await fetch(getApiUrl(`/orders/${id}/delete/`), {
-          method: 'POST',
-          headers: {
-            Authorization: `Token ${adminToken}`,
-          },
-        });
-      }
-
-      if (!response.ok) {
-        throw new Error('Failed to delete order');
-      }
-
-      await fetchOrders();
+      );
     } catch (error) {
       console.error('Error deleting order:', error);
       alert(copy.app.deleteOrderFailed);
@@ -478,28 +546,34 @@ export default function App() {
     event.preventDefault();
 
     try {
-      const response = await fetch(getApiUrl('/auth/login/'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await runWithBackendTask(
+        copy.app.loading.adminLoginTitle,
+        copy.app.loading.adminLoginCopy,
+        async () => {
+          const response = await fetch(getApiUrl('/auth/login/'), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username: adminUsername,
+              password: adminPassword,
+            }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Login failed');
+          }
+
+          setAdminToken(data.token);
+          localStorage.setItem('flourish_admin_token', data.token);
+          setShowAdminLogin(false);
+          setCurrentPage('admin');
+          setAdminUsername('');
+          setAdminPassword('');
         },
-        body: JSON.stringify({
-          username: adminUsername,
-          password: adminPassword,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      setAdminToken(data.token);
-      localStorage.setItem('flourish_admin_token', data.token);
-      setShowAdminLogin(false);
-      setCurrentPage('admin');
-      setAdminUsername('');
-      setAdminPassword('');
+      );
       return;
     } catch (error) {
       const message = getFetchErrorMessage(error, 'Admin login');
@@ -643,6 +717,28 @@ export default function App() {
               </p>
             </div>
             <p className="text-[color:var(--muted)]">{copy.app.backendLoadingCopy}</p>
+          </div>
+        </div>
+      )}
+
+      {backendTaskCount > 0 && backendTaskLabel && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(53,38,31,0.22)] px-4 backdrop-blur-[2px]">
+          <div
+            className="surface-card-strong w-full max-w-md p-8 text-center"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <span
+              className="mx-auto inline-flex h-12 w-12 animate-spin rounded-full border-[3px] border-[rgba(53,38,31,0.18)] border-t-[color:var(--accent-dark)]"
+              aria-hidden="true"
+            />
+            <h2 className="mt-5 text-3xl text-[color:var(--foreground)]">
+              {backendTaskLabel.title}
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
+              {backendTaskLabel.copy}
+            </p>
           </div>
         </div>
       )}
