@@ -225,6 +225,14 @@ class OrderAdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Order.objects.filter(id=self.order.id).exists())
 
+    def test_admin_can_delete_order_via_post_fallback(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.post(f"/api/orders/{self.order.id}/delete/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Order.objects.filter(id=self.order.id).exists())
+
 
 class SyncAdminUserCommandTests(TestCase):
     @patch.dict(

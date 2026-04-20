@@ -447,12 +447,21 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(getApiUrl(`/orders/${id}/`), {
+      let response = await fetch(getApiUrl(`/orders/${id}/`), {
         method: 'DELETE',
         headers: {
           Authorization: `Token ${adminToken}`,
         },
       });
+
+      if (response.status === 405) {
+        response = await fetch(getApiUrl(`/orders/${id}/delete/`), {
+          method: 'POST',
+          headers: {
+            Authorization: `Token ${adminToken}`,
+          },
+        });
+      }
 
       if (!response.ok) {
         throw new Error('Failed to delete order');

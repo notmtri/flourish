@@ -217,6 +217,16 @@ def order_detail(request, pk):
 
 
 @api_view(["POST"])
+def order_delete(request, pk):
+    if not is_admin(request):
+        return admin_required_response()
+
+    order = get_object_or_404(Order, pk=pk)
+    order.delete()
+    return Response({"success": True}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
 def order_payment(request, pk):
     order = get_object_or_404(Order, pk=pk)
     order.payment_screenshot = request.data.get("screenshot", "")

@@ -32,5 +32,6 @@ urlpatterns = [
     path('api/reviews/<int:pk>/', views.review_detail),
     path('api/orders/', views.orders_collection),
     path('api/orders/<int:pk>/', views.order_detail),
+    path('api/orders/<int:pk>/delete/', views.order_delete),
     path('api/orders/<int:pk>/payment/', views.order_payment),
 ]
