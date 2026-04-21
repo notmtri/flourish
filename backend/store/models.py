@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
 
 class TimestampedModel(models.Model):
@@ -101,12 +102,24 @@ class Order(TimestampedModel):
         max_length=30,
         choices=PaymentStatus.choices,
         default=PaymentStatus.PENDING,
+        db_index=True,
     )
     total_amount = models.DecimalField(max_digits=12, decimal_places=0, default=Decimal("0"))
     payment_screenshot = models.TextField(blank=True)
+    admin_notes = models.TextField(blank=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    processing_started_at = models.DateTimeField(null=True, blank=True)
+    shipped_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    is_archived = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["status", "payment_status"]),
+        ]
 
     def __str__(self):
         return self.order_number or f"Order {self.pk}"
@@ -141,3 +154,22 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.product_name} x {self.quantity}"
+
+
+class OrderAuditLog(TimestampedModel):
+    order = models.ForeignKey(Order, related_name="audit_logs", on_delete=models.CASCADE)
+    actor = models.ForeignKey(
+        get_user_model(),
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="order_audit_logs",
+    )
+    action = models.CharField(max_length=64)
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.order} - {self.action}"

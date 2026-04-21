@@ -1,11 +1,18 @@
 from django.contrib import admin
 
-from .models import Order, OrderItem, Product, Review
+from .models import Order, OrderAuditLog, OrderItem, Product, Review
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
+
+
+class OrderAuditLogInline(admin.TabularInline):
+    model = OrderAuditLog
+    extra = 0
+    readonly_fields = ("actor", "action", "details", "created_at")
+    can_delete = False
 
 
 @admin.register(Product)
@@ -31,8 +38,16 @@ class OrderAdmin(admin.ModelAdmin):
         "status",
         "payment_status",
         "total_amount",
+        "is_archived",
         "created_at",
     )
-    list_filter = ("payment_method", "status", "payment_status")
+    list_filter = ("payment_method", "status", "payment_status", "is_archived")
     search_fields = ("order_number", "customer_name", "phone")
-    inlines = [OrderItemInline]
+    readonly_fields = (
+        "verified_at",
+        "processing_started_at",
+        "shipped_at",
+        "delivered_at",
+        "archived_at",
+    )
+    inlines = [OrderItemInline, OrderAuditLogInline]

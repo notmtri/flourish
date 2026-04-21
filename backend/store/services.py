@@ -3,7 +3,6 @@ import logging
 import os
 import re
 import unicodedata
-from base64 import b64encode
 from urllib.parse import quote
 from datetime import datetime
 from urllib import error, request
@@ -13,6 +12,8 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 
 logger = logging.getLogger(__name__)
+VIETNAM_PHONE_RE = re.compile(r"^(?:\+84|84|0)(?:3|5|7|8|9)\d{8}$")
+MAX_PAYMENT_SCREENSHOT_BYTES = 5 * 1024 * 1024
 
 
 class VietQrError(Exception):
@@ -114,7 +115,7 @@ def build_order_notification_message(order) -> str:
     )
 
 
-def build_order_notification_sms(order) -> str:
+def build_order_notification_summary(order) -> str:
     item_summary = ", ".join(
         f"{item.product_name} x{item.quantity}"
         for item in order.items.all()[:3]
@@ -134,62 +135,47 @@ def build_order_notification_sms(order) -> str:
     )
 
 
-def send_order_notification_sms(order) -> bool:
-    recipient = settings.ORDER_NOTIFICATION_PHONE
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
-    from_number = os.getenv("TWILIO_FROM_NUMBER", "").strip()
-
-    missing = [
-        name
-        for name, value in {
-            "ORDER_NOTIFICATION_PHONE / ADMIN_PHONE": recipient,
-            "TWILIO_ACCOUNT_SID": account_sid,
-            "TWILIO_AUTH_TOKEN": auth_token,
-            "TWILIO_FROM_NUMBER": from_number,
-        }.items()
-        if not value
-    ]
-    if missing:
-        logger.warning("SMS notification is not configured; missing %s.", ", ".join(missing))
+def send_order_notification_bitrix24(order) -> bool:
+    webhook_url = settings.BITRIX24_WEBHOOK_URL
+    if not webhook_url:
+        logger.warning("BITRIX24_WEBHOOK_URL is not configured; skipping Bitrix24 order notification.")
         return False
 
-    payload = {
-        "To": recipient,
-        "From": from_number,
-        "Body": build_order_notification_sms(order),
-    }
-    encoded_payload = "&".join(
-        f"{quote(str(key), safe='')}={quote(str(value), safe='')}"
-        for key, value in payload.items()
+    payload = json.dumps(
+        {
+            "POST_TITLE": f"New Flourish order: {order.order_number}",
+            "POST_MESSAGE": build_order_notification_message(order),
+            "DEST": settings.BITRIX24_DESTINATIONS or ["UA"],
+            "IMPORTANT": settings.BITRIX24_IMPORTANT,
+            "TAGS": "flourish,order,new-order",
+        }
     ).encode("utf-8")
-    auth_header = b64encode(f"{account_sid}:{auth_token}".encode("utf-8")).decode("ascii")
     req = request.Request(
-        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
-        data=encoded_payload,
+        settings.BITRIX24_WEBHOOK_URL,
+        data=payload,
         headers={
-            "Authorization": f"Basic {auth_header}",
-            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
         },
         method="POST",
     )
 
     try:
         with request.urlopen(req, timeout=20) as response:
-            if response.status >= 400:
-                raise error.HTTPError(
-                    req.full_url,
-                    response.status,
-                    "Twilio request failed",
-                    response.headers,
-                    None,
-                )
+            data = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
-        logger.exception("Failed to send order SMS notification: %s", detail or exc.reason)
+        logger.exception("Failed to send Bitrix24 order notification: %s", detail or exc.reason)
         return False
     except error.URLError:
-        logger.exception("Failed to connect to Twilio for order SMS notification.")
+        logger.exception("Failed to connect to Bitrix24 for order notification.")
+        return False
+
+    if data.get("error"):
+        logger.error(
+            "Bitrix24 order notification failed: %s",
+            data.get("error_description") or data["error"],
+        )
         return False
 
     return True
@@ -202,13 +188,55 @@ def send_order_notifications(order) -> dict[str, bool]:
     for channel in channels:
         if channel == "email":
             results[channel] = send_order_notification_email(order)
-        elif channel == "sms":
-            results[channel] = send_order_notification_sms(order)
+        elif channel == "bitrix24":
+            results[channel] = send_order_notification_bitrix24(order)
         else:
             logger.warning("Unknown notification channel '%s'; skipping.", channel)
             results[channel] = False
 
     return results
+
+
+def normalize_phone_number(phone: str) -> str:
+    digits = re.sub(r"[^\d+]", "", phone or "")
+    if digits.startswith("84") and not digits.startswith("+84"):
+        digits = f"+{digits}"
+    elif digits.startswith("0"):
+        digits = f"+84{digits[1:]}"
+    return digits
+
+
+def is_valid_vietnam_phone(phone: str) -> bool:
+    compact = re.sub(r"\s+", "", phone or "")
+    return bool(VIETNAM_PHONE_RE.fullmatch(compact))
+
+
+def is_reasonable_payment_screenshot(data_url: str) -> bool:
+    if not data_url:
+        return False
+    if not data_url.startswith("data:image/"):
+        return False
+    try:
+        header, encoded = data_url.split(",", 1)
+    except ValueError:
+        return False
+
+    if ";base64" not in header:
+        return False
+
+    estimated_size = len(encoded) * 3 // 4
+    return estimated_size <= MAX_PAYMENT_SCREENSHOT_BYTES
+
+
+def record_order_audit(order, *, actor=None, action: str, details: dict | None = None):
+    from .models import OrderAuditLog
+
+    OrderAuditLog.objects.create(
+        order=order,
+        actor=actor,
+        action=action,
+        details=details or {},
+    )
 
 
 def _normalize_vietqr_text(value: str) -> str:

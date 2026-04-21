@@ -11,10 +11,11 @@ from .services import (
     VietQrConfigError,
     VietQrProviderError,
     build_order_reference,
-    build_order_notification_sms,
+    build_order_notification_summary,
     build_vietqr_quick_link,
     generate_vietqr,
     is_valid_vietqr_acq_id,
+    send_order_notification_bitrix24,
     send_order_notification_email,
     send_order_notifications,
 )
@@ -110,6 +111,7 @@ class OrderApiTests(TestCase):
                 "phone": "0900000000",
                 "paymentMethod": "QR",
                 "orderNumber": "FLR-TEST-002",
+                "paymentScreenshot": "data:image/png;base64,aGVsbG8=",
                 "items": [
                     {
                         "product": {
@@ -159,21 +161,37 @@ class OrderNotificationServiceTests(TestCase):
         mock_send_mail.assert_not_called()
 
     @patch("store.services.send_order_notification_email", return_value=True)
-    @patch("store.services.send_order_notification_sms", return_value=True)
-    def test_send_order_notifications_uses_configured_channels(self, mock_sms, mock_email):
-        with self.settings(ORDER_NOTIFICATION_CHANNELS=["sms", "email"]):
+    @patch("store.services.send_order_notification_bitrix24", return_value=True)
+    def test_send_order_notifications_uses_configured_channels(self, mock_bitrix24, mock_email):
+        with self.settings(ORDER_NOTIFICATION_CHANNELS=["bitrix24", "email"]):
             result = send_order_notifications(self.order)
 
-        self.assertEqual(result, {"sms": True, "email": True})
-        mock_sms.assert_called_once_with(self.order)
+        self.assertEqual(result, {"bitrix24": True, "email": True})
+        mock_bitrix24.assert_called_once_with(self.order)
         mock_email.assert_called_once_with(self.order)
 
-    def test_build_order_notification_sms_includes_order_summary(self):
-        message = build_order_notification_sms(self.order)
+    def test_build_order_notification_summary_includes_order_summary(self):
+        message = build_order_notification_summary(self.order)
 
         self.assertIn("FLR-NOTIFY-001", message)
         self.assertIn("150,000 VND", message)
         self.assertIn("Test Bouquet x1", message)
+
+    @patch("store.services.request.urlopen")
+    def test_bitrix24_notification_posts_to_webhook(self, mock_urlopen):
+        mock_response = mock_urlopen.return_value.__enter__.return_value
+        mock_response.read.return_value = b'{"result": 217}'
+
+        with self.settings(
+            BITRIX24_WEBHOOK_URL="https://example.bitrix24.com/rest/1/token/log.blogpost.add",
+            BITRIX24_DESTINATIONS=["UA"],
+            BITRIX24_IMPORTANT="Y",
+        ):
+            self.assertTrue(send_order_notification_bitrix24(self.order))
+
+        request_call = mock_urlopen.call_args.args[0]
+        self.assertEqual(request_call.full_url, "https://example.bitrix24.com/rest/1/token/log.blogpost.add")
+        self.assertEqual(request_call.get_method(), "POST")
 
 
 class AdminLoginApiTests(TestCase):
@@ -273,7 +291,8 @@ class OrderAdminApiTests(TestCase):
         response = self.client.delete(f"/api/orders/{self.order.id}/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Order.objects.filter(id=self.order.id).exists())
+        self.order.refresh_from_db()
+        self.assertTrue(self.order.is_archived)
 
     def test_admin_can_delete_order_via_post_fallback(self):
         self.client.force_authenticate(user=self.admin)
@@ -281,7 +300,8 @@ class OrderAdminApiTests(TestCase):
         response = self.client.post(f"/api/orders/{self.order.id}/delete/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(Order.objects.filter(id=self.order.id).exists())
+        self.order.refresh_from_db()
+        self.assertTrue(self.order.is_archived)
 
 
 class SyncAdminUserCommandTests(TestCase):

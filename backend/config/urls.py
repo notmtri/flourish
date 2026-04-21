@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/auth/login/', views.admin_login),
     path('api/auth/logout/', views.admin_logout),
     path('api/auth/me/', views.admin_me),
+    path('api/admin/test-email/', views.admin_test_email),
     path('api/payments/vietqr/preview/', views.vietqr_preview),
     path('api/products/', views.products_collection),
     path('api/products/<int:pk>/', views.product_detail),

@@ -1,8 +1,11 @@
 import { CreditCard, Landmark, Upload } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SiteCopy } from '../content';
 import { formatCurrency } from '../utils/format';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { toast } from 'sonner';
+
+const checkoutDraftStorageKey = 'flourish_checkout_draft';
 
 interface Product {
   id: string;
@@ -24,7 +27,7 @@ interface CheckoutPageProps {
     phone: string;
     paymentMethod: string;
     paymentScreenshot?: string;
-  }) => void;
+  }) => Promise<void>;
   onGenerateVietQr: (input: {
     customerName: string;
     amount: number;
@@ -74,9 +77,75 @@ export default function CheckoutPage({
   } | null>(null);
   const [providerAvailable, setProviderAvailable] = useState(true);
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [qrError, setQrError] = useState('');
+  const [formErrors, setFormErrors] = useState<{
+    customerName?: string;
+    address?: string;
+    phone?: string;
+    paymentScreenshot?: string;
+    generatedOrderNumber?: string;
+  }>({});
 
   const total = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(checkoutDraftStorageKey);
+    if (!savedDraft) {
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(savedDraft);
+      setCustomerName(draft.customerName || '');
+      setAddress(draft.address || '');
+      setPhone(draft.phone || '');
+      setPaymentMethod(draft.paymentMethod === 'QR' ? 'QR' : 'COD');
+      setPaymentScreenshot(draft.paymentScreenshot || '');
+      setShowPaymentDetails(Boolean(draft.showPaymentDetails));
+      setGeneratedOrderNumber(draft.generatedOrderNumber || '');
+      setGeneratedTransferContent(draft.generatedTransferContent || '');
+      setQrImage(draft.qrImage || '');
+      setBankInfo(draft.bankInfo || null);
+      setProviderAvailable(draft.providerAvailable !== false);
+      setQrError(draft.qrError || '');
+    } catch (error) {
+      console.error('Invalid checkout draft:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      checkoutDraftStorageKey,
+      JSON.stringify({
+        customerName,
+        address,
+        phone,
+        paymentMethod,
+        paymentScreenshot,
+        showPaymentDetails,
+        generatedOrderNumber,
+        generatedTransferContent,
+        qrImage,
+        bankInfo,
+        providerAvailable,
+        qrError,
+      }),
+    );
+  }, [
+    address,
+    bankInfo,
+    customerName,
+    generatedOrderNumber,
+    generatedTransferContent,
+    paymentMethod,
+    paymentScreenshot,
+    phone,
+    providerAvailable,
+    qrError,
+    qrImage,
+    showPaymentDetails,
+  ]);
 
   const paymentReference = useMemo(() => {
     const trimmed = customerName.trim();
@@ -89,9 +158,22 @@ export default function CheckoutPage({
     return `${initials} FLOURISH`;
   }, [customerName]);
 
+  const handleCopyValue = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch (error) {
+      console.error(`Failed to copy ${label}:`, error);
+      toast.error(`Could not copy ${label.toLowerCase()}`);
+    }
+  };
+
   const handleGenerateQr = async () => {
     if (!customerName.trim()) {
-      alert(copy.alerts.nameRequiredForQr);
+      setFormErrors((current) => ({
+        ...current,
+        customerName: copy.alerts.nameRequiredForQr,
+      }));
       return;
     }
 
@@ -137,28 +219,44 @@ export default function CheckoutPage({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!customerName || !address || !phone) {
-      alert(copy.alerts.requiredFields);
-      return;
+    const nextErrors: typeof formErrors = {};
+
+    if (!customerName.trim()) {
+      nextErrors.customerName = copy.alerts.requiredFields;
+    }
+
+    if (!phone.trim()) {
+      nextErrors.phone = copy.alerts.requiredFields;
+    }
+
+    if (!address.trim()) {
+      nextErrors.address = copy.alerts.requiredFields;
     }
 
     if (paymentMethod === 'QR' && !paymentScreenshot) {
-      alert(copy.alerts.uploadScreenshot);
-      return;
+      nextErrors.paymentScreenshot = copy.alerts.uploadScreenshot;
     }
 
     if (paymentMethod === 'QR' && !generatedOrderNumber) {
-      alert(copy.alerts.generateTransferDetails);
+      nextErrors.generatedOrderNumber = copy.alerts.generateTransferDetails;
+    }
+
+    setFormErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
-    onPlaceOrder({
+    setIsSubmitting(true);
+    void onPlaceOrder({
       orderNumber: paymentMethod === 'QR' ? generatedOrderNumber || undefined : undefined,
-      customerName,
-      address,
-      phone,
+      customerName: customerName.trim(),
+      address: address.trim(),
+      phone: phone.trim(),
       paymentMethod,
       paymentScreenshot: paymentMethod === 'QR' ? paymentScreenshot : undefined,
+    }).finally(() => {
+      setIsSubmitting(false);
     });
   };
 
@@ -197,11 +295,17 @@ export default function CheckoutPage({
                   <input
                     type="text"
                     value={customerName}
-                    onChange={(event) => setCustomerName(event.target.value)}
+                    onChange={(event) => {
+                      setCustomerName(event.target.value);
+                      setFormErrors((current) => ({ ...current, customerName: undefined }));
+                    }}
                     className="input-field"
                     placeholder={copy.page.placeholders.fullName}
                     required
                   />
+                  {formErrors.customerName && (
+                    <p className="mt-2 text-sm font-semibold text-red-600">{formErrors.customerName}</p>
+                  )}
                 </div>
 
                 <div>
@@ -209,22 +313,34 @@ export default function CheckoutPage({
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => {
+                      setPhone(event.target.value);
+                      setFormErrors((current) => ({ ...current, phone: undefined }));
+                    }}
                     className="input-field"
                     placeholder={copy.page.placeholders.phone}
                     required
                   />
+                  {formErrors.phone && (
+                    <p className="mt-2 text-sm font-semibold text-red-600">{formErrors.phone}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="field-label">{copy.page.fields.address}</label>
                   <textarea
                     value={address}
-                    onChange={(event) => setAddress(event.target.value)}
+                    onChange={(event) => {
+                      setAddress(event.target.value);
+                      setFormErrors((current) => ({ ...current, address: undefined }));
+                    }}
                     className="textarea-field"
                     placeholder={copy.page.placeholders.address}
                     required
                   />
+                  {formErrors.address && (
+                    <p className="mt-2 text-sm font-semibold text-red-600">{formErrors.address}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -243,7 +359,14 @@ export default function CheckoutPage({
                     type="radio"
                     value="COD"
                     checked={paymentMethod === 'COD'}
-                    onChange={() => setPaymentMethod('COD')}
+                    onChange={() => {
+                      setPaymentMethod('COD');
+                      setFormErrors((current) => ({
+                        ...current,
+                        paymentScreenshot: undefined,
+                        generatedOrderNumber: undefined,
+                      }));
+                    }}
                     className="sr-only"
                   />
                   <div className="flex items-start gap-3">
@@ -302,6 +425,9 @@ export default function CheckoutPage({
                       {qrError && (
                         <p className="text-sm font-semibold text-red-600">{qrError}</p>
                       )}
+                      {formErrors.generatedOrderNumber && (
+                        <p className="text-sm font-semibold text-red-600">{formErrors.generatedOrderNumber}</p>
+                      )}
                     </>
                   ) : (
                     <>
@@ -353,6 +479,13 @@ export default function CheckoutPage({
                               <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-[rgba(203,111,134,0.06)] px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                 {generatedTransferContent || paymentReference}
                               </p>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyValue(generatedTransferContent || paymentReference, 'Transfer content')}
+                                className="btn-secondary mt-3"
+                              >
+                                Copy transfer content
+                              </button>
                             </div>
                             {bankInfo && (
                               <div className="grid gap-3 sm:grid-cols-2">
@@ -363,6 +496,13 @@ export default function CheckoutPage({
                                   <p className="mt-2 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
                                     {bankInfo.accountNo}
                                   </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyValue(bankInfo.accountNo, 'Account number')}
+                                    className="btn-secondary mt-3"
+                                  >
+                                    Copy account number
+                                  </button>
                                 </div>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
@@ -396,6 +536,9 @@ export default function CheckoutPage({
                             <button type="button" onClick={handleGenerateQr} disabled={isGeneratingQr} className="btn-secondary">
                               {isGeneratingQr ? copy.page.refreshingQr : providerAvailable ? copy.page.refreshQr : copy.page.retryQr}
                             </button>
+                            {formErrors.generatedOrderNumber && (
+                              <p className="text-sm font-semibold text-red-600">{formErrors.generatedOrderNumber}</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -439,6 +582,9 @@ export default function CheckoutPage({
                             )}
                           </label>
                         </div>
+                        {formErrors.paymentScreenshot && (
+                          <p className="mt-2 text-sm font-semibold text-red-600">{formErrors.paymentScreenshot}</p>
+                        )}
                       </div>
                     </>
                   )}
@@ -446,8 +592,8 @@ export default function CheckoutPage({
               )}
             </div>
 
-            <button type="submit" className="btn-primary w-full">
-              {copy.page.submit}
+            <button type="submit" disabled={isSubmitting} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70">
+              {isSubmitting ? 'Placing order...' : copy.page.submit}
             </button>
           </form>
         </section>

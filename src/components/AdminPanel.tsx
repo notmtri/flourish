@@ -33,6 +33,7 @@ interface Order {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  adminNotes?: string;
   paymentScreenshot?: string;
   createdAt: string;
 }
@@ -45,7 +46,7 @@ interface AdminPanelProps {
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
   onDeleteOrder: (id: string, orderNumber: string) => void;
-  onUpdateOrderStatus: (id: string, status: string, paymentStatus: string) => void;
+  onUpdateOrderStatus: (id: string, status: string, paymentStatus: string, adminNotes?: string) => void;
   onUpdateBrandSettings: (settings: BrandSettings) => void;
   onLogout: () => void;
 }
@@ -77,6 +78,8 @@ export default function AdminPanel({
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productQuery, setProductQuery] = useState('');
+  const [orderQuery, setOrderQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -90,6 +93,15 @@ export default function AdminPanel({
   const ongoingOrders = useMemo(
     () =>
       orders
+        .filter((order) => {
+          const query = orderQuery.trim().toLowerCase();
+          if (!query) {
+            return true;
+          }
+          return [order.orderNumber, order.customerName, order.phone].some((value) =>
+            value.toLowerCase().includes(query),
+          );
+        })
         .filter((order) => !isPastOrder(order))
         .sort((left, right) => {
           const leftScore = Number(needsAttention(left));
@@ -100,18 +112,41 @@ export default function AdminPanel({
 
           return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
         }),
-    [orders],
+    [orderQuery, orders],
   );
 
   const pastOrders = useMemo(
     () =>
       orders
+        .filter((order) => {
+          const query = orderQuery.trim().toLowerCase();
+          if (!query) {
+            return true;
+          }
+          return [order.orderNumber, order.customerName, order.phone].some((value) =>
+            value.toLowerCase().includes(query),
+          );
+        })
         .filter((order) => isPastOrder(order))
         .sort(
           (left, right) =>
             new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
         ),
-    [orders],
+    [orderQuery, orders],
+  );
+
+  const filteredProducts = useMemo(
+    () =>
+      products.filter((product) => {
+        const query = productQuery.trim().toLowerCase();
+        if (!query) {
+          return true;
+        }
+        return [product.name, product.category, product.description].some((value) =>
+          value.toLowerCase().includes(query),
+        );
+      }),
+    [productQuery, products],
   );
 
   const orderStats = useMemo(
@@ -197,7 +232,7 @@ export default function AdminPanel({
       order.paymentMethod === 'QR' && order.paymentStatus !== 'verified'
         ? 'verified'
         : order.paymentStatus;
-    onUpdateOrderStatus(order.id, 'delivered', nextPaymentStatus);
+    onUpdateOrderStatus(order.id, 'delivered', nextPaymentStatus, order.adminNotes);
   };
 
   const renderOrderCard = (order: Order) => {
@@ -287,6 +322,7 @@ export default function AdminPanel({
                       order.id,
                       event.target.value,
                       order.paymentStatus,
+                      order.adminNotes,
                     )
                   }
                   className="input-field"
@@ -304,7 +340,7 @@ export default function AdminPanel({
                 <select
                   value={order.paymentStatus}
                   onChange={(event) =>
-                    onUpdateOrderStatus(order.id, order.status, event.target.value)
+                    onUpdateOrderStatus(order.id, order.status, event.target.value, order.adminNotes)
                   }
                   className="input-field"
                 >
@@ -316,10 +352,25 @@ export default function AdminPanel({
               </div>
             </div>
 
+            <div>
+              <label className="field-label">Staff notes</label>
+              <textarea
+                value={order.adminNotes || ''}
+                onBlur={(event) =>
+                  event.target.value !== (order.adminNotes || '') &&
+                  onUpdateOrderStatus(order.id, order.status, order.paymentStatus, event.target.value)
+                }
+                readOnly={false}
+                className="textarea-field"
+                rows={3}
+                placeholder="Add internal notes about timing, substitutions, or delivery updates."
+              />
+            </div>
+
             <div className="flex flex-wrap gap-3">
               {order.paymentStatus === 'awaiting_verification' && (
                 <button
-                  onClick={() => onUpdateOrderStatus(order.id, order.status, 'verified')}
+                  onClick={() => onUpdateOrderStatus(order.id, order.status, 'verified', order.adminNotes)}
                   className="btn-secondary"
                 >
                   Verify payment
@@ -327,7 +378,7 @@ export default function AdminPanel({
               )}
               {order.status === 'pending' && (
                 <button
-                  onClick={() => onUpdateOrderStatus(order.id, 'processing', order.paymentStatus)}
+                  onClick={() => onUpdateOrderStatus(order.id, 'processing', order.paymentStatus, order.adminNotes)}
                   className="btn-secondary"
                 >
                   Start processing
@@ -335,7 +386,7 @@ export default function AdminPanel({
               )}
               {order.status === 'processing' && (
                 <button
-                  onClick={() => onUpdateOrderStatus(order.id, 'shipped', order.paymentStatus)}
+                  onClick={() => onUpdateOrderStatus(order.id, 'shipped', order.paymentStatus, order.adminNotes)}
                   className="btn-secondary"
                 >
                   Mark shipped
@@ -483,6 +534,13 @@ export default function AdminPanel({
                 Add product
               </button>
             </div>
+            <input
+              type="search"
+              value={productQuery}
+              onChange={(event) => setProductQuery(event.target.value)}
+              className="input-field"
+              placeholder="Search products by name, category, or description"
+            />
 
             {showProductForm && (
               <div className="surface-card-strong mb-6 p-6 sm:p-8">
@@ -601,7 +659,7 @@ export default function AdminPanel({
             )}
 
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <article key={product.id} className="surface-card overflow-hidden p-3">
                   <ImageWithFallback
                     src={
@@ -652,6 +710,13 @@ export default function AdminPanel({
                 Keep the queue easy to scan so you can see what needs verification, production, or delivery next.
               </p>
             </div>
+            <input
+              type="search"
+              value={orderQuery}
+              onChange={(event) => setOrderQuery(event.target.value)}
+              className="input-field mb-6"
+              placeholder="Search orders by order number, customer, or phone"
+            />
 
             {orders.length === 0 ? (
               <div className="surface-card p-10 text-center">

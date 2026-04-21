@@ -3,6 +3,11 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from .models import Order, OrderItem, Product, Review
+from .services import (
+    is_reasonable_payment_screenshot,
+    is_valid_vietnam_phone,
+    normalize_phone_number,
+)
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -26,6 +31,20 @@ class ProductSerializer(serializers.ModelSerializer):
             "updatedAt",
         ]
 
+    def validate_images(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Images must be a list of URLs.")
+        if len(value) > 6:
+            raise serializers.ValidationError("Please keep product images to 6 or fewer.")
+        for url in value:
+            serializers.URLField().run_validation(url)
+        return value
+
+    def validate_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Price must be greater than zero.")
+        return value
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     id = serializers.CharField(read_only=True)
@@ -46,6 +65,19 @@ class ReviewSerializer(serializers.ModelSerializer):
             "createdAt",
             "updatedAt",
         ]
+
+    def validate_feedback(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError("Feedback is too short.")
+        if len(value) > 600:
+            raise serializers.ValidationError("Feedback is too long.")
+        return value
+
+    def validate_avatar(self, value):
+        if value:
+            serializers.URLField().run_validation(value)
+        return value
 
 
 class ProductRefWriteSerializer(serializers.Serializer):
@@ -95,8 +127,14 @@ class OrderSerializer(serializers.ModelSerializer):
     )
     paymentStatus = serializers.CharField(source="payment_status")
     paymentScreenshot = serializers.CharField(source="payment_screenshot", allow_blank=True, required=False)
+    adminNotes = serializers.CharField(source="admin_notes", allow_blank=True, required=False)
     createdAt = serializers.DateTimeField(source="created_at", read_only=True)
     updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    verifiedAt = serializers.DateTimeField(source="verified_at", read_only=True)
+    processingStartedAt = serializers.DateTimeField(source="processing_started_at", read_only=True)
+    shippedAt = serializers.DateTimeField(source="shipped_at", read_only=True)
+    deliveredAt = serializers.DateTimeField(source="delivered_at", read_only=True)
+    archivedAt = serializers.DateTimeField(source="archived_at", read_only=True)
     items = OrderItemSerializer(many=True, read_only=True)
 
     class Meta:
@@ -111,10 +149,16 @@ class OrderSerializer(serializers.ModelSerializer):
             "status",
             "paymentStatus",
             "paymentScreenshot",
+            "adminNotes",
             "totalAmount",
             "items",
             "createdAt",
             "updatedAt",
+            "verifiedAt",
+            "processingStartedAt",
+            "shippedAt",
+            "deliveredAt",
+            "archivedAt",
         ]
         read_only_fields = ["orderNumber", "totalAmount", "items", "createdAt", "updatedAt"]
 
@@ -148,6 +192,39 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             "paymentScreenshot",
             "items",
         ]
+
+    def validate_phone(self, value):
+        if not is_valid_vietnam_phone(value):
+            raise serializers.ValidationError("Please enter a valid Vietnam phone number.")
+        return normalize_phone_number(value)
+
+    def validate_address(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError("Address is too short.")
+        return value
+
+    def validate_payment_screenshot(self, value):
+        if value and not is_reasonable_payment_screenshot(value):
+            raise serializers.ValidationError("Payment screenshot must be an image under 5 MB.")
+        return value
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("At least one order item is required.")
+        if len(value) > 20:
+            raise serializers.ValidationError("Orders are limited to 20 line items.")
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        payment_method = attrs.get("payment_method")
+        payment_screenshot = attrs.get("payment_screenshot", "")
+        if payment_method == Order.PaymentMethod.QR and not payment_screenshot:
+            raise serializers.ValidationError(
+                {"paymentScreenshot": "Payment screenshot is required for QR orders."}
+            )
+        return attrs
 
     def create(self, validated_data):
         items_data = validated_data.pop("items")

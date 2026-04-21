@@ -172,14 +172,19 @@ CSRF_TRUSTED_ORIGINS = env_list(
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'store.authentication.ExpiringTokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'admin_login': os.getenv('ADMIN_LOGIN_RATE', '5/hour'),
+        'order_create': os.getenv('ORDER_CREATE_RATE', '30/hour'),
+    },
 }
+ADMIN_TOKEN_TTL_HOURS = int(os.getenv("ADMIN_TOKEN_TTL_HOURS", "24"))
 
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
@@ -198,6 +203,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-repl
 ORDER_NOTIFICATION_EMAIL = os.getenv("ORDER_NOTIFICATION_EMAIL", os.getenv("ADMIN_EMAIL", "")).strip()
 ORDER_NOTIFICATION_PHONE = os.getenv("ORDER_NOTIFICATION_PHONE", os.getenv("ADMIN_PHONE", "")).strip()
 ORDER_NOTIFICATION_CHANNELS = env_list("ORDER_NOTIFICATION_CHANNELS", ["email"])
+BITRIX24_WEBHOOK_URL = os.getenv("BITRIX24_WEBHOOK_URL", "").strip()
+BITRIX24_DESTINATIONS = env_list("BITRIX24_DESTINATIONS", ["UA"])
+BITRIX24_IMPORTANT = "Y" if env_bool("BITRIX24_IMPORTANT", default=True) else "N"
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = not DEBUG

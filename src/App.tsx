@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Toaster, toast } from 'sonner';
 import AdminPanel from './components/AdminPanel';
 import CartPage from './components/CartPage';
 import CheckoutPage from './components/CheckoutPage';
@@ -51,6 +52,7 @@ interface Order {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  adminNotes?: string;
   paymentScreenshot?: string;
   createdAt: string;
 }
@@ -76,10 +78,41 @@ type Page = 'home' | 'products' | 'cart' | 'checkout' | 'admin' | 'order-success
 
 const validPages: Page[] = ['home', 'products', 'cart', 'checkout', 'admin', 'order-success'];
 const localApiBase = 'http://127.0.0.1:8000/api';
+const cartStorageKey = 'flourish_cart';
+const checkoutDraftStorageKey = 'flourish_checkout_draft';
+const routeByPage: Record<Page, string> = {
+  home: '/',
+  products: '/products',
+  cart: '/cart',
+  checkout: '/checkout',
+  admin: '/admin',
+  'order-success': '/order-success',
+};
+
+function getPageFromPathname(pathname: string): Page {
+  const normalizedPath = pathname.replace(/\/+$/, '') || '/';
+  const match = (Object.entries(routeByPage).find(([, path]) => path === normalizedPath) || [])[0];
+  return (match as Page) || 'home';
+}
+
+function readStoredCart(): CartItem[] {
+  const storedCart = localStorage.getItem(cartStorageKey);
+  if (!storedCart) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(storedCart);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Invalid saved cart:', error);
+    return [];
+  }
+}
 
 export default function App() {
   const copy = content;
-  const [currentPage, setCurrentPage] = useState<Page>('home');
+  const [currentPage, setCurrentPage] = useState<Page>(() => getPageFromPathname(window.location.pathname));
   const [brandSettings, setBrandSettings] = useState<BrandSettings>(() => {
     const savedSettings = localStorage.getItem(brandSettingsStorageKey);
 
@@ -98,7 +131,7 @@ export default function App() {
     }
   });
   const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => readStoredCart());
   const [reviews, setReviews] = useState<Review[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -112,6 +145,8 @@ export default function App() {
     title: string;
     copy: string;
   } | null>(null);
+  const [placedOrderNumber, setPlacedOrderNumber] = useState('');
+  const [placedPaymentMethod, setPlacedPaymentMethod] = useState('');
 
   const configuredApiBase = process.env.REACT_APP_API_BASE?.trim().replace(/\/+$/, '');
   const isLocalHost =
@@ -122,6 +157,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(brandSettingsStorageKey, JSON.stringify(brandSettings));
   }, [brandSettings]);
+
+  useEffect(() => {
+    localStorage.setItem(cartStorageKey, JSON.stringify(cart));
+  }, [cart]);
 
   const getApiUrl = (path: string) => {
     if (!apiBase) {
@@ -194,9 +233,19 @@ export default function App() {
 
   useEffect(() => {
     if (!isAdmin && currentPage === 'admin') {
+      window.history.replaceState({}, '', routeByPage.home);
       setCurrentPage('home');
     }
   }, [currentPage, isAdmin]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPage(getPageFromPathname(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const getAuthHeaders = () => ({
     'Content-Type': 'application/json',
@@ -208,7 +257,9 @@ export default function App() {
       return;
     }
 
-    setCurrentPage(page as Page);
+    const nextPage = page as Page;
+    window.history.pushState({}, '', routeByPage[nextPage]);
+    setCurrentPage(nextPage);
     if (page !== 'products') {
       setSelectedProduct(null);
     }
@@ -285,7 +336,7 @@ export default function App() {
       return [...currentCart, { product, quantity: 1 }];
     });
 
-    alert(copy.app.addedToCart(product.name));
+    toast.success(copy.app.addedToCart(product.name));
   };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
@@ -329,24 +380,16 @@ export default function App() {
           }
 
           const data = await response.json();
-
-          if (orderData.paymentScreenshot) {
-            await fetch(getApiUrl(`/orders/${data.order.id}/payment/`), {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ screenshot: orderData.paymentScreenshot }),
-            });
-          }
-
+          setPlacedOrderNumber(data.order?.orderNumber || '');
+          setPlacedPaymentMethod(data.order?.paymentMethod || orderData.paymentMethod);
           setCart([]);
-          setCurrentPage('order-success');
+          localStorage.removeItem(checkoutDraftStorageKey);
+          navigateTo('order-success');
         },
       );
     } catch (error) {
       console.error('Error placing order:', error);
-      alert(copy.app.placeOrderFailed);
+      toast.error(copy.app.placeOrderFailed);
     }
   };
 
@@ -406,12 +449,13 @@ export default function App() {
             throw new Error('Failed to add product');
           }
 
-          await fetchProducts();
+          const data = await response.json();
+          setProducts((currentProducts) => [data.product, ...currentProducts]);
         },
       );
     } catch (error) {
       console.error('Error adding product:', error);
-      alert(copy.app.addProductFailed);
+      toast.error(copy.app.addProductFailed);
     }
   };
 
@@ -433,12 +477,15 @@ export default function App() {
             throw new Error('Failed to update product');
           }
 
-          await fetchProducts();
+          const data = await response.json();
+          setProducts((currentProducts) =>
+            currentProducts.map((product) => (product.id === id ? data.product : product)),
+          );
         },
       );
     } catch (error) {
       console.error('Error updating product:', error);
-      alert(copy.app.updateProductFailed);
+      toast.error(copy.app.updateProductFailed);
     }
   };
 
@@ -463,12 +510,12 @@ export default function App() {
             throw new Error('Failed to delete product');
           }
 
-          await fetchProducts();
+          setProducts((currentProducts) => currentProducts.filter((product) => product.id !== id));
         },
       );
     } catch (error) {
       console.error('Error deleting product:', error);
-      alert(copy.app.deleteProductFailed);
+      toast.error(copy.app.deleteProductFailed);
     }
   };
 
@@ -476,6 +523,7 @@ export default function App() {
     id: string,
     status: string,
     paymentStatus: string,
+    adminNotes?: string,
   ) => {
     try {
       await runWithBackendTask(
@@ -487,19 +535,22 @@ export default function App() {
             headers: {
               ...getAuthHeaders(),
             },
-            body: JSON.stringify({ status, paymentStatus }),
+            body: JSON.stringify({ status, paymentStatus, adminNotes }),
           });
 
           if (!response.ok) {
             throw new Error('Failed to update order');
           }
 
-          await fetchOrders();
+          const data = await response.json();
+          setOrders((currentOrders) =>
+            currentOrders.map((order) => (order.id === id ? data.order : order)),
+          );
         },
       );
     } catch (error) {
       console.error('Error updating order:', error);
-      alert(copy.app.updateOrderFailed);
+      toast.error(copy.app.updateOrderFailed);
     }
   };
 
@@ -533,12 +584,12 @@ export default function App() {
             throw new Error('Failed to delete order');
           }
 
-          await fetchOrders();
+          setOrders((currentOrders) => currentOrders.filter((order) => order.id !== id));
         },
       );
     } catch (error) {
       console.error('Error deleting order:', error);
-      alert(copy.app.deleteOrderFailed);
+      toast.error(copy.app.deleteOrderFailed);
     }
   };
 
@@ -569,7 +620,7 @@ export default function App() {
           setAdminToken(data.token);
           localStorage.setItem('flourish_admin_token', data.token);
           setShowAdminLogin(false);
-          setCurrentPage('admin');
+          navigateTo('admin');
           setAdminUsername('');
           setAdminPassword('');
         },
@@ -577,7 +628,7 @@ export default function App() {
       return;
     } catch (error) {
       const message = getFetchErrorMessage(error, 'Admin login');
-      alert(message);
+      toast.error(message);
     }
   };
 
@@ -656,7 +707,7 @@ export default function App() {
           }).catch(() => undefined);
           setAdminToken('');
           localStorage.removeItem('flourish_admin_token');
-          setCurrentPage('home');
+          navigateTo('home');
         }}
       />
     );
@@ -688,12 +739,36 @@ export default function App() {
           <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
             {copy.app.orderSuccess.copy}
           </p>
+          {placedPaymentMethod === 'QR' && (
+            <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-[color:var(--muted)]">
+              Your payment proof has been received and is now waiting for verification.
+            </p>
+          )}
+          {placedOrderNumber && (
+            <p className="mx-auto mt-4 inline-flex rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-[color:var(--foreground)]">
+              Order number: {placedOrderNumber}
+            </p>
+          )}
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <button onClick={() => navigateTo('home')} className="btn-primary">
+            <button
+              onClick={() => {
+                setPlacedOrderNumber('');
+                setPlacedPaymentMethod('');
+                navigateTo('home');
+              }}
+              className="btn-primary"
+            >
               {copy.app.orderSuccess.homeCta}
             </button>
-            <button onClick={() => navigateTo('products')} className="btn-secondary">
+            <button
+              onClick={() => {
+                setPlacedOrderNumber('');
+                setPlacedPaymentMethod('');
+                navigateTo('products');
+              }}
+              className="btn-secondary"
+            >
               {copy.app.orderSuccess.productsCta}
             </button>
           </div>
@@ -794,6 +869,7 @@ export default function App() {
       </main>
 
       {currentPage !== 'admin' && <Footer onNavigate={navigateTo} copy={copy.footer} navCopy={copy.header.nav} />}
+      <Toaster position="top-center" richColors closeButton />
       <Analytics />
       <SpeedInsights />
     </div>
