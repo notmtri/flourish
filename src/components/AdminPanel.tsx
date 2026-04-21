@@ -1,5 +1,5 @@
 import { CheckCircle2, Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { BrandSettings } from '../content/siteMedia';
 import { formatCurrency, formatOrderDate } from '../utils/format';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -101,6 +101,8 @@ export default function AdminPanel({
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productQuery, setProductQuery] = useState('');
+  const [productPage, setProductPage] = useState(1);
+  const productsPerPage = 12;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -151,6 +153,26 @@ export default function AdminPanel({
       }),
     [productQuery, products],
   );
+
+  const productPagination = useMemo(() => {
+    const totalItems = filteredProducts.length;
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / productsPerPage);
+    const currentPage = totalPages === 0 ? 1 : Math.min(productPage, totalPages);
+    const startIndex = (currentPage - 1) * productsPerPage;
+
+    return {
+      page: currentPage,
+      totalItems,
+      totalPages,
+      hasNext: currentPage < totalPages,
+      hasPrevious: currentPage > 1,
+      items: filteredProducts.slice(startIndex, startIndex + productsPerPage),
+    };
+  }, [filteredProducts, productPage]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productQuery]);
 
   const orderStats = useMemo(
     () => [
@@ -562,124 +584,19 @@ export default function AdminPanel({
               placeholder="Search products by name, category, or description"
             />
 
-            {showProductForm && (
-              <div className="surface-card-strong mb-6 p-6 sm:p-8">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-3xl text-[color:var(--foreground)]">
-                      {editingProduct ? 'Edit product' : 'Create product'}
-                    </h3>
-                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                      Keep your inputs clean so cards on the storefront stay consistent.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setShowProductForm(false);
-                      setEditingProduct(null);
-                      resetForm();
-                    }}
-                    className="btn-ghost"
-                  >
-                    <X className="h-4 w-4" />
-                    Close
-                  </button>
-                </div>
-
-                <form onSubmit={handleSubmitProduct} className="mt-6 grid gap-5">
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div>
-                      <label className="field-label">Product name</label>
-                      <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(event) =>
-                          setFormData({ ...formData, name: event.target.value })
-                        }
-                        className="input-field"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="field-label">Category</label>
-                      <select
-                        value={formData.category}
-                        onChange={(event) =>
-                          setFormData({ ...formData, category: event.target.value })
-                        }
-                        className="input-field"
-                      >
-                        <option value="Bouquet">Bouquet</option>
-                        <option value="Single Stem">Single Stem</option>
-                        <option value="Gift Set">Gift Set</option>
-                        <option value="Custom">Custom</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="field-label">Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(event) =>
-                        setFormData({ ...formData, description: event.target.value })
-                      }
-                      className="textarea-field"
-                      rows={4}
-                    />
-                  </div>
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div>
-                      <label className="field-label">Price (VND)</label>
-                      <input
-                        type="number"
-                        step="1000"
-                        value={formData.price}
-                        onChange={(event) =>
-                          setFormData({ ...formData, price: event.target.value })
-                        }
-                        className="input-field"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="field-label">Image URLs (comma separated)</label>
-                      <input
-                        type="text"
-                        value={formData.images}
-                        onChange={(event) =>
-                          setFormData({ ...formData, images: event.target.value })
-                        }
-                        className="input-field"
-                        placeholder="https://example.com/1.jpg, https://example.com/2.jpg"
-                      />
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-3 rounded-[20px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
-                    <input
-                      type="checkbox"
-                      checked={formData.isBestSeller}
-                      onChange={(event) =>
-                        setFormData({ ...formData, isBestSeller: event.target.checked })
-                      }
-                      className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
-                    />
-                    Mark as best seller
-                  </label>
-
-                  <button type="submit" className="btn-primary self-start">
-                    {editingProduct ? 'Update product' : 'Add product'}
-                  </button>
-                </form>
-              </div>
-            )}
+            <div className="mb-6 mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-[color:var(--muted)]">
+              <span>
+                {productPagination.totalItems} products
+                {productQuery.trim() ? ` for "${productQuery.trim()}"` : ''}
+              </span>
+              <span>
+                Page {productPagination.totalPages === 0 ? 0 : productPagination.page} of{' '}
+                {productPagination.totalPages}
+              </span>
+            </div>
 
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => (
+              {productPagination.items.map((product) => (
                 <article key={product.id} className="surface-card overflow-hidden p-3">
                   <ImageWithFallback
                     src={
@@ -719,6 +636,32 @@ export default function AdminPanel({
                 </article>
               ))}
             </div>
+
+            {productPagination.totalPages > 1 && (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => setProductPage((page) => Math.max(1, page - 1))}
+                  disabled={!productPagination.hasPrevious}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous page
+                </button>
+                <span className="pill">
+                  Page {productPagination.page} of {productPagination.totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    setProductPage((page) =>
+                      Math.min(productPagination.totalPages, page + 1),
+                    )
+                  }
+                  disabled={!productPagination.hasNext}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next page
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -841,6 +784,137 @@ export default function AdminPanel({
           </section>
         )}
       </div>
+
+      {showProductForm && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(53,38,31,0.26)] px-4 py-6 backdrop-blur-[3px]">
+          <div className="surface-card-strong max-h-[90vh] w-full max-w-4xl overflow-y-auto p-6 sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-3xl text-[color:var(--foreground)]">
+                  {editingProduct ? 'Edit product' : 'Create product'}
+                </h3>
+                <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                  Keep your inputs clean so cards on the storefront stay consistent.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowProductForm(false);
+                  setEditingProduct(null);
+                  resetForm();
+                }}
+                className="btn-ghost"
+              >
+                <X className="h-4 w-4" />
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitProduct} className="mt-6 grid gap-5">
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="field-label">Product name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(event) =>
+                      setFormData({ ...formData, name: event.target.value })
+                    }
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="field-label">Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(event) =>
+                      setFormData({ ...formData, category: event.target.value })
+                    }
+                    className="input-field"
+                  >
+                    <option value="Bouquet">Bouquet</option>
+                    <option value="Single Stem">Single Stem</option>
+                    <option value="Gift Set">Gift Set</option>
+                    <option value="Custom">Custom</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(event) =>
+                    setFormData({ ...formData, description: event.target.value })
+                  }
+                  className="textarea-field"
+                  rows={4}
+                />
+              </div>
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="field-label">Price (VND)</label>
+                  <input
+                    type="number"
+                    step="1000"
+                    value={formData.price}
+                    onChange={(event) =>
+                      setFormData({ ...formData, price: event.target.value })
+                    }
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="field-label">Image URLs (comma separated)</label>
+                  <input
+                    type="text"
+                    value={formData.images}
+                    onChange={(event) =>
+                      setFormData({ ...formData, images: event.target.value })
+                    }
+                    className="input-field"
+                    placeholder="https://example.com/1.jpg, https://example.com/2.jpg"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-[20px] border border-[color:var(--line)] bg-white/80 px-4 py-3 text-sm font-semibold text-[color:var(--foreground)]">
+                <input
+                  type="checkbox"
+                  checked={formData.isBestSeller}
+                  onChange={(event) =>
+                    setFormData({ ...formData, isBestSeller: event.target.checked })
+                  }
+                  className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
+                />
+                Mark as best seller
+              </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button type="submit" className="btn-primary">
+                  {editingProduct ? 'Update product' : 'Add product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProductForm(false);
+                    setEditingProduct(null);
+                    resetForm();
+                  }}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

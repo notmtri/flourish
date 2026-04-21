@@ -163,7 +163,7 @@ export const en: SiteCopy = {
     page: {
       kicker: 'Checkout',
       title: 'Confirm delivery details and choose how you want to pay.',
-      copy: 'Keep the form simple, make the payment choice clear, and show proof-upload only when it is actually needed.',
+      copy: '',
       deliveryTitle: 'Delivery information',
       fields: {
         fullName: 'Full name *',
@@ -250,14 +250,14 @@ export const en: SiteCopy = {
     adminLogin: {
       kicker: 'Private access',
       title: 'Admin sign in',
-      copy: 'Keep the operational side separate, but styled with the same care as the storefront.',
+      copy: '',
       usernameLabel: 'Admin username',
       usernamePlaceholder: 'Admin username',
       passwordLabel: 'Admin password',
       passwordPlaceholder: 'Enter admin password',
       login: 'Login',
       cancel: 'Cancel',
-      footnote: 'Use a real Django staff account',
+      footnote: '',
     },
     orderSuccess: {
       kicker: 'Order confirmed',

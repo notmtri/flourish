@@ -149,6 +149,7 @@ export default function App() {
     }
   });
   const [products, setProducts] = useState<Product[]>([]);
+  const [adminProducts, setAdminProducts] = useState<Product[]>([]);
   const [productCategories, setProductCategories] = useState<string[]>([]);
   const [productsPagination, setProductsPagination] = useState<PaginationState>(defaultPagination);
   const [cart, setCart] = useState<CartItem[]>(() => readStoredCart());
@@ -387,6 +388,26 @@ export default function App() {
     }
   };
 
+  const fetchAdminProducts = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: '1',
+        pageSize: '500',
+      });
+      const response = await fetch(getApiUrl(`/products/?${params.toString()}`));
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin products');
+      }
+
+      const data = await response.json();
+      setAdminProducts(data.products || []);
+    } catch (error) {
+      console.error('Error fetching admin products:', error);
+      setAdminProducts([]);
+    }
+  };
+
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       void fetchProducts();
@@ -402,9 +423,12 @@ export default function App() {
   useEffect(() => {
     if (!isAdmin) {
       setOrders([]);
+      setAdminProducts([]);
       setOrdersPagination({ ...defaultPagination, pageSize: 20 });
       return;
     }
+
+    void fetchAdminProducts();
 
     const timeoutId = window.setTimeout(() => {
       void fetchOrders();
@@ -564,6 +588,7 @@ export default function App() {
           }
 
           const data = await response.json();
+          setAdminProducts((currentProducts) => [data.product, ...currentProducts]);
           setProducts((currentProducts) => [data.product, ...currentProducts]);
         },
       );
@@ -592,6 +617,9 @@ export default function App() {
           }
 
           const data = await response.json();
+          setAdminProducts((currentProducts) =>
+            currentProducts.map((product) => (product.id === id ? data.product : product)),
+          );
           setProducts((currentProducts) =>
             currentProducts.map((product) => (product.id === id ? data.product : product)),
           );
@@ -624,6 +652,7 @@ export default function App() {
             throw new Error('Failed to delete product');
           }
 
+          setAdminProducts((currentProducts) => currentProducts.filter((product) => product.id !== id));
           setProducts((currentProducts) => currentProducts.filter((product) => product.id !== id));
         },
       );
@@ -803,7 +832,7 @@ export default function App() {
   if (isAdmin && currentPage === 'admin') {
     return (
       <AdminPanel
-        products={products}
+        products={adminProducts}
         orders={orders}
         ordersPagination={ordersPagination}
         brandSettings={brandSettings}
