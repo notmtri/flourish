@@ -776,6 +776,7 @@ export default function App() {
   };
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartTotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
   if (showAdminLogin) {
     return (
@@ -981,12 +982,15 @@ export default function App() {
         />
       )}
 
-      <main>
+      <main className={(currentPage === 'products' || currentPage === 'home') && cartItemCount > 0 ? 'pb-24 md:pb-0' : undefined}>
         {currentPage === 'home' && (
           <HomePage
             reviews={reviews}
             reviewsLoading={isReviewsLoading}
+            cartItemCount={cartItemCount}
             onShopNow={() => navigateTo('products')}
+            onOpenCart={() => navigateTo('cart')}
+            onContinueCheckout={() => navigateTo(cartItemCount > 0 ? 'checkout' : 'products')}
             copy={copy.home}
           />
         )}
@@ -1043,6 +1047,33 @@ export default function App() {
           />
         )}
       </main>
+
+      {(currentPage === 'products' || currentPage === 'home') && cartItemCount > 0 && (
+        <div className="fixed inset-x-0 bottom-0 z-[55] border-t border-[color:var(--line)] bg-[#fffaf6]/95 px-4 py-4 backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+            <button
+              onClick={() => navigateTo('cart')}
+              className="btn-secondary min-h-12 flex-1"
+            >
+              Cart ({cartItemCount})
+            </button>
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                Ready
+              </p>
+              <p className="text-lg font-bold text-[color:var(--accent-dark)]">
+                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(cartTotal)}
+              </p>
+            </div>
+            <button
+              onClick={() => navigateTo('checkout')}
+              className="btn-primary min-h-12 flex-1"
+            >
+              Checkout
+            </button>
+          </div>
+        </div>
+      )}
 
       {currentPage !== 'admin' && <Footer onNavigate={navigateTo} copy={copy.footer} navCopy={copy.header.nav} />}
       <Toaster position="top-center" richColors closeButton />

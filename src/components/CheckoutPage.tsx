@@ -220,12 +220,16 @@ export default function CheckoutPage({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPaymentScreenshot(reader.result as string);
-      setFormErrors((current) => ({ ...current, paymentScreenshot: undefined }));
-    };
-    reader.readAsDataURL(file);
+    void (async () => {
+      try {
+        const compressed = await compressImageFile(file);
+        setPaymentScreenshot(compressed);
+        setFormErrors((current) => ({ ...current, paymentScreenshot: undefined }));
+      } catch (error) {
+        console.error('Failed to prepare payment screenshot:', error);
+        toast.error('Could not process the screenshot. Please try another image.');
+      }
+    })();
   };
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -290,7 +294,7 @@ export default function CheckoutPage({
 
   return (
     <div className="section-shell">
-      <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-8 pb-28 lg:grid-cols-[1.1fr_0.9fr] lg:pb-0">
         <section>
           <span className="section-kicker">{copy.page.kicker}</span>
           <h1 className="section-title">{copy.page.title}</h1>
@@ -307,10 +311,12 @@ export default function CheckoutPage({
                   <input
                     type="text"
                     value={customerName}
+                    autoComplete="name"
                     onChange={(event) => {
                       setCustomerName(event.target.value);
                       setFormErrors((current) => ({ ...current, customerName: undefined }));
                     }}
+                    onFocus={(event) => event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="input-field"
                     placeholder={copy.page.placeholders.fullName}
                     required
@@ -325,10 +331,13 @@ export default function CheckoutPage({
                   <input
                     type="tel"
                     value={phone}
+                    inputMode="tel"
+                    autoComplete="tel"
                     onChange={(event) => {
                       setPhone(event.target.value);
                       setFormErrors((current) => ({ ...current, phone: undefined }));
                     }}
+                    onFocus={(event) => event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="input-field"
                     placeholder={copy.page.placeholders.phone}
                     required
@@ -342,10 +351,12 @@ export default function CheckoutPage({
                   <label className="field-label">{copy.page.fields.address}</label>
                   <textarea
                     value={address}
+                    autoComplete="street-address"
                     onChange={(event) => {
                       setAddress(event.target.value);
                       setFormErrors((current) => ({ ...current, address: undefined }));
                     }}
+                    onFocus={(event) => event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="textarea-field"
                     placeholder={copy.page.placeholders.address}
                     required
@@ -604,7 +615,7 @@ export default function CheckoutPage({
               )}
             </div>
 
-            <button type="submit" disabled={isSubmitting} className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70">
+            <button type="submit" disabled={isSubmitting} className="btn-primary hidden w-full min-h-12 disabled:cursor-not-allowed disabled:opacity-70 lg:inline-flex">
               {isSubmitting ? 'Placing order...' : copy.page.submit}
             </button>
           </form>
@@ -649,6 +660,64 @@ export default function CheckoutPage({
           </div>
         </aside>
       </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-[60] border-t border-[color:var(--line)] bg-[#fffaf6]/95 px-4 py-4 backdrop-blur sm:px-6 lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              {copy.page.totalLabel}
+            </p>
+            <p className="text-2xl font-bold text-[color:var(--accent-dark)]">{formatCurrency(total)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              document.querySelector('form')?.requestSubmit()
+            }
+            disabled={isSubmitting}
+            className="btn-primary min-h-12 flex-1 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? 'Placing order...' : copy.page.submit}
+          </button>
+        </div>
+      </div>
     </div>
   );
+}
+
+async function compressImageFile(file: File): Promise<string> {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(dataUrl);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    throw new Error('Canvas context unavailable');
+  }
+
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  return canvas.toDataURL(outputType, outputType === 'image/png' ? undefined : 0.82);
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to load image'));
+    image.src = src;
+  });
 }

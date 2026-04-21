@@ -85,7 +85,7 @@ export default function CartPage({
                   <div className="mt-4 flex items-center gap-3">
                     <button
                       onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/90 text-[color:var(--foreground)]"
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/90 text-[color:var(--foreground)]"
                     >
                       <Minus className="h-4 w-4" />
                     </button>
@@ -94,7 +94,7 @@ export default function CartPage({
                     </span>
                     <button
                       onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/90 text-[color:var(--foreground)]"
+                      className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/90 text-[color:var(--foreground)]"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -104,7 +104,7 @@ export default function CartPage({
                 <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-between">
                   <button
                     onClick={() => onRemoveItem(item.product.id)}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
+                    className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-600 transition hover:bg-red-100"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

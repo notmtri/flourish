@@ -1,4 +1,4 @@
-import { CheckCircle2, Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, Edit, LogOut, Package, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { BrandSettings } from '../content/siteMedia';
 import { formatCurrency, formatOrderDate } from '../utils/format';
@@ -102,6 +102,7 @@ export default function AdminPanel({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productQuery, setProductQuery] = useState('');
   const [productPage, setProductPage] = useState(1);
+  const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const productsPerPage = 12;
 
   const [formData, setFormData] = useState({
@@ -173,6 +174,19 @@ export default function AdminPanel({
   useEffect(() => {
     setProductPage(1);
   }, [productQuery]);
+
+  useEffect(() => {
+    if (!showProductForm) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showProductForm]);
 
   const orderStats = useMemo(
     () => [
@@ -260,8 +274,18 @@ export default function AdminPanel({
     onUpdateOrderStatus(order.id, 'delivered', nextPaymentStatus, order.adminNotes);
   };
 
+  const isOrderExpanded = (orderId: string) => expandedOrders[orderId] ?? false;
+
+  const toggleOrderExpanded = (orderId: string) => {
+    setExpandedOrders((current) => ({
+      ...current,
+      [orderId]: !isOrderExpanded(orderId),
+    }));
+  };
+
   const renderOrderCard = (order: Order) => {
     const showFinishAction = !isPastOrder(order);
+    const expanded = isOrderExpanded(order.id);
 
     return (
       <article key={order.id} className="surface-card-strong p-6 sm:p-8">
@@ -277,6 +301,13 @@ export default function AdminPanel({
             <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
               {formatOrderDate(order.createdAt)}
             </p>
+            <button
+              onClick={() => toggleOrderExpanded(order.id)}
+              className="btn-secondary mt-4 lg:hidden"
+            >
+              {expanded ? 'Hide details' : 'Show details'}
+              <ChevronDown className={`h-4 w-4 transition ${expanded ? 'rotate-180' : ''}`} />
+            </button>
           </div>
 
           <div className="text-left lg:text-right">
@@ -298,7 +329,7 @@ export default function AdminPanel({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className={`${expanded ? 'mt-6 grid gap-6' : 'hidden'} lg:mt-6 lg:grid lg:gap-6 lg:grid-cols-[0.9fr_1.1fr]`}>
           <div className="space-y-4">
             <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -570,7 +601,7 @@ export default function AdminPanel({
                   setEditingProduct(null);
                   resetForm();
                 }}
-                className="btn-primary"
+                className="btn-primary min-h-12"
               >
                 <Plus className="h-4 w-4" />
                 Add product
@@ -620,13 +651,13 @@ export default function AdminPanel({
                     </p>
 
                     <div className="mt-5 flex gap-3">
-                      <button onClick={() => handleEditProduct(product)} className="btn-secondary flex-1">
+                      <button onClick={() => handleEditProduct(product)} className="btn-secondary min-h-12 flex-1">
                         <Edit className="h-4 w-4" />
                         Edit
                       </button>
                       <button
                         onClick={() => onDeleteProduct(product.id)}
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-red-50 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                        className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full bg-red-50 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete
@@ -786,8 +817,8 @@ export default function AdminPanel({
       </div>
 
       {showProductForm && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(53,38,31,0.26)] px-4 py-6 backdrop-blur-[3px]">
-          <div className="surface-card-strong max-h-[90vh] w-full max-w-4xl overflow-y-auto p-6 sm:p-8">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(53,38,31,0.26)] px-0 py-0 backdrop-blur-[3px] sm:px-4 sm:py-6">
+          <div className="surface-card-strong h-[100dvh] w-full max-w-none overflow-y-auto rounded-none border-0 p-5 sm:max-h-[90vh] sm:max-w-4xl sm:rounded-[28px] sm:border sm:p-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h3 className="text-3xl text-[color:var(--foreground)]">
@@ -810,7 +841,7 @@ export default function AdminPanel({
               </button>
             </div>
 
-            <form onSubmit={handleSubmitProduct} className="mt-6 grid gap-5">
+            <form id="admin-product-form" onSubmit={handleSubmitProduct} className="mt-6 grid gap-5 pb-24 sm:pb-0">
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
                   <label className="field-label">Product name</label>
@@ -895,8 +926,8 @@ export default function AdminPanel({
                 Mark as best seller
               </label>
 
-              <div className="flex flex-wrap gap-3">
-                <button type="submit" className="btn-primary">
+              <div className="hidden flex-wrap gap-3 sm:flex">
+                <button type="submit" className="btn-primary min-h-12">
                   {editingProduct ? 'Update product' : 'Add product'}
                 </button>
                 <button
@@ -906,12 +937,36 @@ export default function AdminPanel({
                     setEditingProduct(null);
                     resetForm();
                   }}
-                  className="btn-secondary"
+                  className="btn-secondary min-h-12"
                 >
                   Cancel
                 </button>
               </div>
             </form>
+            <div className="fixed inset-x-0 bottom-0 z-[91] border-t border-[color:var(--line)] bg-[#fffaf6]/95 px-4 py-4 backdrop-blur sm:hidden">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    (document.getElementById('admin-product-form') as HTMLFormElement | null)?.requestSubmit()
+                  }
+                  className="btn-primary min-h-12 flex-1"
+                >
+                  {editingProduct ? 'Update product' : 'Add product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProductForm(false);
+                    setEditingProduct(null);
+                    resetForm();
+                  }}
+                  className="btn-secondary min-h-12 flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

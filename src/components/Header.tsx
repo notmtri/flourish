@@ -1,5 +1,5 @@
 import { Menu, Settings2, ShoppingBag, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SiteCopy } from '../content';
 import { BrandSettings } from '../content/siteMedia';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -32,6 +32,19 @@ export default function Header({
     onNavigate(page);
     setMobileMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[color:var(--line)] bg-[#fffaf6]">
