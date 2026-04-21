@@ -20,7 +20,7 @@ from .services import (
     generate_preview_order_number,
     sync_admin_user_from_env,
     generate_vietqr,
-    send_order_notification_email,
+    send_order_notifications,
 )
 
 logger = logging.getLogger(__name__)
@@ -188,9 +188,9 @@ def orders_collection(request):
 
     def notify_admin():
         try:
-            send_order_notification_email(order)
+            send_order_notifications(order)
         except Exception:
-            logger.exception("Failed to send order notification email for order %s", order.order_number)
+            logger.exception("Failed to send order notifications for order %s", order.order_number)
 
     transaction.on_commit(notify_admin)
     return Response({"order": OrderSerializer(order).data}, status=status.HTTP_201_CREATED)

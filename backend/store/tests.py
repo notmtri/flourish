@@ -11,9 +11,12 @@ from .services import (
     VietQrConfigError,
     VietQrProviderError,
     build_order_reference,
+    build_order_notification_sms,
     build_vietqr_quick_link,
     generate_vietqr,
     is_valid_vietqr_acq_id,
+    send_order_notification_email,
+    send_order_notifications,
 )
 
 
@@ -124,6 +127,53 @@ class OrderApiTests(TestCase):
         order = Order.objects.get(order_number="FLR-TEST-002")
         self.assertEqual(order.payment_status, Order.PaymentStatus.AWAITING_VERIFICATION)
         self.assertEqual(int(order.total_amount), 300000)
+
+
+class OrderNotificationServiceTests(TestCase):
+    def setUp(self):
+        self.order = Order.objects.create(
+            order_number="FLR-NOTIFY-001",
+            customer_name="Nguyen Hoang Minh Tri",
+            address="123 Test Street",
+            phone="0900000000",
+            payment_method=Order.PaymentMethod.COD,
+            status=Order.Status.PENDING,
+            payment_status=Order.PaymentStatus.PENDING,
+            total_amount=150000,
+        )
+        self.order.items.create(
+            product_name="Test Bouquet",
+            unit_price=150000,
+            quantity=1,
+        )
+
+    @patch("store.services.send_mail")
+    def test_email_notification_skips_when_smtp_credentials_are_missing(self, mock_send_mail):
+        with self.settings(
+            ORDER_NOTIFICATION_EMAIL="admin@example.com",
+            EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend",
+            EMAIL_SMTP_CONFIGURED=False,
+        ):
+            self.assertFalse(send_order_notification_email(self.order))
+
+        mock_send_mail.assert_not_called()
+
+    @patch("store.services.send_order_notification_email", return_value=True)
+    @patch("store.services.send_order_notification_sms", return_value=True)
+    def test_send_order_notifications_uses_configured_channels(self, mock_sms, mock_email):
+        with self.settings(ORDER_NOTIFICATION_CHANNELS=["sms", "email"]):
+            result = send_order_notifications(self.order)
+
+        self.assertEqual(result, {"sms": True, "email": True})
+        mock_sms.assert_called_once_with(self.order)
+        mock_email.assert_called_once_with(self.order)
+
+    def test_build_order_notification_sms_includes_order_summary(self):
+        message = build_order_notification_sms(self.order)
+
+        self.assertIn("FLR-NOTIFY-001", message)
+        self.assertIn("150,000 VND", message)
+        self.assertIn("Test Bouquet x1", message)
 
 
 class AdminLoginApiTests(TestCase):

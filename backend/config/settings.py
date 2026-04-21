@@ -187,14 +187,17 @@ EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=True)
 EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", default=False)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
 EMAIL_HOST_PASSWORD = "".join(os.getenv("EMAIL_HOST_PASSWORD", "").split())
+EMAIL_SMTP_CONFIGURED = bool(EMAIL_HOST_USER and EMAIL_HOST_PASSWORD)
 default_email_backend = (
     "django.core.mail.backends.smtp.EmailBackend"
-    if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD
-    else "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_SMTP_CONFIGURED
+    else "django.core.mail.backends.console.EmailBackend"
 )
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", default_email_backend).strip() or default_email_backend
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@flourish.local")
 ORDER_NOTIFICATION_EMAIL = os.getenv("ORDER_NOTIFICATION_EMAIL", os.getenv("ADMIN_EMAIL", "")).strip()
+ORDER_NOTIFICATION_PHONE = os.getenv("ORDER_NOTIFICATION_PHONE", os.getenv("ADMIN_PHONE", "")).strip()
+ORDER_NOTIFICATION_CHANNELS = env_list("ORDER_NOTIFICATION_CHANNELS", ["email"])
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = not DEBUG

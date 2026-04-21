@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import unicodedata
+from base64 import b64encode
 from urllib.parse import quote
 from datetime import datetime
 from urllib import error, request
@@ -70,12 +71,32 @@ def send_order_notification_email(order) -> bool:
         logger.warning("ORDER_NOTIFICATION_EMAIL / ADMIN_EMAIL is not configured; skipping order email.")
         return False
 
+    if (
+        settings.EMAIL_BACKEND == "django.core.mail.backends.smtp.EmailBackend"
+        and not settings.EMAIL_SMTP_CONFIGURED
+    ):
+        logger.warning("SMTP email backend is enabled without EMAIL_HOST_USER / EMAIL_HOST_PASSWORD; skipping order email.")
+        return False
+
     subject = f"New Flourish order: {order.order_number}"
+    message = build_order_notification_message(order)
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[recipient],
+        fail_silently=False,
+    )
+    return True
+
+
+def build_order_notification_message(order) -> str:
     item_lines = [
         f"- {item.product_name} x {item.quantity} @ {int(item.unit_price):,} VND"
         for item in order.items.all()
     ]
-    message = "\n".join(
+    return "\n".join(
         [
             "A new order has been placed.",
             "",
@@ -92,14 +113,102 @@ def send_order_notification_email(order) -> bool:
         ]
     )
 
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[recipient],
-        fail_silently=False,
+
+def build_order_notification_sms(order) -> str:
+    item_summary = ", ".join(
+        f"{item.product_name} x{item.quantity}"
+        for item in order.items.all()[:3]
     )
+    if order.items.count() > 3:
+        item_summary = f"{item_summary}, +{order.items.count() - 3} more"
+
+    return " | ".join(
+        part
+        for part in [
+            f"New Flourish order {order.order_number}",
+            f"{order.customer_name} - {order.phone}",
+            f"{int(order.total_amount):,} VND",
+            item_summary,
+        ]
+        if part
+    )
+
+
+def send_order_notification_sms(order) -> bool:
+    recipient = settings.ORDER_NOTIFICATION_PHONE
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    from_number = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+
+    missing = [
+        name
+        for name, value in {
+            "ORDER_NOTIFICATION_PHONE / ADMIN_PHONE": recipient,
+            "TWILIO_ACCOUNT_SID": account_sid,
+            "TWILIO_AUTH_TOKEN": auth_token,
+            "TWILIO_FROM_NUMBER": from_number,
+        }.items()
+        if not value
+    ]
+    if missing:
+        logger.warning("SMS notification is not configured; missing %s.", ", ".join(missing))
+        return False
+
+    payload = {
+        "To": recipient,
+        "From": from_number,
+        "Body": build_order_notification_sms(order),
+    }
+    encoded_payload = "&".join(
+        f"{quote(str(key), safe='')}={quote(str(value), safe='')}"
+        for key, value in payload.items()
+    ).encode("utf-8")
+    auth_header = b64encode(f"{account_sid}:{auth_token}".encode("utf-8")).decode("ascii")
+    req = request.Request(
+        f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+        data=encoded_payload,
+        headers={
+            "Authorization": f"Basic {auth_header}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(req, timeout=20) as response:
+            if response.status >= 400:
+                raise error.HTTPError(
+                    req.full_url,
+                    response.status,
+                    "Twilio request failed",
+                    response.headers,
+                    None,
+                )
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        logger.exception("Failed to send order SMS notification: %s", detail or exc.reason)
+        return False
+    except error.URLError:
+        logger.exception("Failed to connect to Twilio for order SMS notification.")
+        return False
+
     return True
+
+
+def send_order_notifications(order) -> dict[str, bool]:
+    results: dict[str, bool] = {}
+    channels = [channel.strip().lower() for channel in settings.ORDER_NOTIFICATION_CHANNELS if channel.strip()]
+
+    for channel in channels:
+        if channel == "email":
+            results[channel] = send_order_notification_email(order)
+        elif channel == "sms":
+            results[channel] = send_order_notification_sms(order)
+        else:
+            logger.warning("Unknown notification channel '%s'; skipping.", channel)
+            results[channel] = False
+
+    return results
 
 
 def _normalize_vietqr_text(value: str) -> str:
