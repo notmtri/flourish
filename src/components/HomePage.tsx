@@ -14,13 +14,14 @@ interface Review {
 
 interface HomePageProps {
   reviews: Review[];
+  reviewsLoading: boolean;
   onShopNow: () => void;
   copy: SiteCopy['home'];
 }
 const featureIcons = [Clock3, Heart, ShieldCheck];
 const occasionIcons = [GraduationCap, Gift, Heart];
 
-export default function HomePage({ reviews, onShopNow, copy }: HomePageProps) {
+export default function HomePage({ reviews, reviewsLoading, onShopNow, copy }: HomePageProps) {
   const reviewList = reviews.length > 0 ? reviews : fallbackReviews;
   const marqueeReviews = [...reviewList.slice(0, 10), ...reviewList.slice(0, 10)];
 
@@ -163,44 +164,62 @@ export default function HomePage({ reviews, onShopNow, copy }: HomePageProps) {
           </div>
 
           <div className="review-marquee-mask">
-            <div className="review-track">
-              {marqueeReviews.map((review, index) => (
-                <article key={`${review.id}-${index}`} className="surface-card review-card min-h-[220px] p-6">
-                  <div className="flex items-center gap-3">
-                    {review.avatar ? (
-                      <ImageWithFallback
-                        src={review.avatar}
-                        alt={review.customerName}
-                        className="h-12 w-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(203,111,134,0.14)] text-sm font-bold text-[color:var(--accent-dark)]">
-                        {review.customerName.charAt(0)}
+            {reviewsLoading ? (
+              <div className="grid gap-5 md:grid-cols-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <article key={index} className="surface-card review-card min-h-[220px] p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="skeleton-block h-12 w-12 rounded-full" />
+                      <div className="flex-1">
+                        <div className="skeleton-line w-1/2" />
+                        <div className="mt-2 skeleton-line w-1/3" />
                       </div>
-                    )}
-                    <div>
-                      <p className="font-semibold text-[color:var(--foreground)]">{review.customerName}</p>
-                      <p className="text-sm text-[color:var(--muted)]">{review.productName}</p>
                     </div>
-                  </div>
+                    <div className="mt-5 skeleton-line w-24" />
+                    <div className="mt-4 skeleton-line h-20 w-full" />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="review-track">
+                {marqueeReviews.map((review, index) => (
+                  <article key={`${review.id}-${index}`} className="surface-card review-card min-h-[220px] p-6">
+                    <div className="flex items-center gap-3">
+                      {review.avatar ? (
+                        <ImageWithFallback
+                          src={review.avatar}
+                          alt={review.customerName}
+                          className="h-12 w-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(203,111,134,0.14)] text-sm font-bold text-[color:var(--accent-dark)]">
+                          {review.customerName.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-semibold text-[color:var(--foreground)]">{review.customerName}</p>
+                        <p className="text-sm text-[color:var(--muted)]">{review.productName}</p>
+                      </div>
+                    </div>
 
-                  <div className="mt-5 flex gap-1">
-                    {Array.from({ length: 5 }).map((_, ratingIndex) => (
-                      <Star
-                        key={ratingIndex}
-                        className={`h-4 w-4 ${
-                          ratingIndex < review.rating
-                            ? 'fill-[color:var(--gold)] text-[color:var(--gold)]'
-                            : 'text-stone-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                    <div className="mt-5 flex gap-1">
+                      {Array.from({ length: 5 }).map((_, ratingIndex) => (
+                        <Star
+                          key={ratingIndex}
+                          className={`h-4 w-4 ${
+                            ratingIndex < review.rating
+                              ? 'fill-[color:var(--gold)] text-[color:var(--gold)]'
+                              : 'text-stone-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
 
-                  <p className="mt-4 text-sm leading-7 text-[color:var(--muted)]">{review.feedback}</p>
-                </article>
-              ))}
-            </div>
+                    <p className="mt-4 text-sm leading-7 text-[color:var(--muted)]">{review.feedback}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>

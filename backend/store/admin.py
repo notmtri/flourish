@@ -27,6 +27,11 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ("customer_name", "product_name", "rating", "is_visible", "created_at")
     list_filter = ("rating", "is_visible")
     search_fields = ("customer_name", "product_name", "feedback")
+    actions = ("approve_reviews",)
+
+    @admin.action(description="Approve selected reviews")
+    def approve_reviews(self, request, queryset):
+        queryset.update(is_visible=True)
 
 
 @admin.register(Order)

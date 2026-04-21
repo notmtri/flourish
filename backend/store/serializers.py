@@ -66,6 +66,11 @@ class ReviewSerializer(serializers.ModelSerializer):
             "updatedAt",
         ]
 
+
+class ReviewCreateSerializer(ReviewSerializer):
+    class Meta(ReviewSerializer.Meta):
+        read_only_fields = ["createdAt", "updatedAt"]
+
     def validate_feedback(self, value):
         value = value.strip()
         if len(value) < 10:
@@ -161,6 +166,48 @@ class OrderSerializer(serializers.ModelSerializer):
             "archivedAt",
         ]
         read_only_fields = ["orderNumber", "totalAmount", "items", "createdAt", "updatedAt"]
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(read_only=True)
+    orderNumber = serializers.CharField(source="order_number", read_only=True)
+    customerName = serializers.CharField(source="customer_name")
+    paymentMethod = serializers.CharField(source="payment_method")
+    totalAmount = serializers.DecimalField(
+        source="total_amount",
+        max_digits=12,
+        decimal_places=0,
+        coerce_to_string=False,
+        read_only=True,
+    )
+    paymentStatus = serializers.CharField(source="payment_status")
+    adminNotes = serializers.CharField(source="admin_notes", allow_blank=True, required=False)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    updatedAt = serializers.DateTimeField(source="updated_at", read_only=True)
+    items = OrderItemSerializer(many=True, read_only=True)
+    hasPaymentScreenshot = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "orderNumber",
+            "customerName",
+            "address",
+            "phone",
+            "paymentMethod",
+            "status",
+            "paymentStatus",
+            "adminNotes",
+            "totalAmount",
+            "items",
+            "createdAt",
+            "updatedAt",
+            "hasPaymentScreenshot",
+        ]
+
+    def get_hasPaymentScreenshot(self, obj):
+        return bool(obj.payment_screenshot)
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):

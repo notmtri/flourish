@@ -6,7 +6,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import Order
+from .models import Order, Product, Review
 from .services import (
     VietQrConfigError,
     VietQrProviderError,
@@ -129,6 +129,27 @@ class OrderApiTests(TestCase):
         order = Order.objects.get(order_number="FLR-TEST-002")
         self.assertEqual(order.payment_status, Order.PaymentStatus.AWAITING_VERIFICATION)
         self.assertEqual(int(order.total_amount), 300000)
+
+    def test_creating_review_requires_approval_before_it_is_listed(self):
+        response = self.client.post(
+            "/api/reviews/",
+            {
+                "customerName": "Nguyen Hoang Minh Tri",
+                "productName": "Test Bouquet",
+                "rating": 5,
+                "feedback": "This bouquet looked beautiful and stayed gift-ready all day.",
+                "avatar": "",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        review = Review.objects.get(customer_name="Nguyen Hoang Minh Tri")
+        self.assertFalse(review.is_visible)
+
+        list_response = self.client.get("/api/reviews/")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.data["reviews"], [])
 
 
 class OrderNotificationServiceTests(TestCase):
@@ -278,6 +299,7 @@ class OrderAdminApiTests(TestCase):
             payment_status=Order.PaymentStatus.PENDING,
             total_amount=100000,
         )
+        self.order.items.create(product_name="Test Bouquet", unit_price=100000, quantity=1)
 
     def test_delete_order_requires_admin_auth(self):
         response = self.client.delete(f"/api/orders/{self.order.id}/")
@@ -302,6 +324,59 @@ class OrderAdminApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.order.refresh_from_db()
         self.assertTrue(self.order.is_archived)
+
+    def test_admin_orders_list_excludes_inline_payment_screenshot(self):
+        self.order.payment_screenshot = "data:image/png;base64,aGVsbG8="
+        self.order.save(update_fields=["payment_screenshot", "updated_at"])
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get("/api/orders/")
+
+        self.assertEqual(response.status_code, 200)
+        first_order = response.data["orders"][0]
+        self.assertNotIn("paymentScreenshot", first_order)
+        self.assertTrue(first_order["hasPaymentScreenshot"])
+        self.assertIn("pagination", response.data)
+
+    def test_admin_order_detail_includes_payment_screenshot(self):
+        self.order.payment_screenshot = "data:image/png;base64,aGVsbG8="
+        self.order.save(update_fields=["payment_screenshot", "updated_at"])
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get(f"/api/orders/{self.order.id}/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["order"]["paymentScreenshot"], "data:image/png;base64,aGVsbG8=")
+
+
+class ProductCatalogApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        Product.objects.create(
+            name="Rose Bouquet",
+            description="Soft pink bouquet",
+            price=120000,
+            category=Product.Category.BOUQUET,
+            is_best_seller=True,
+        )
+        Product.objects.create(
+            name="Gift Box",
+            description="Keepsake gift set",
+            price=200000,
+            category=Product.Category.GIFT_SET,
+        )
+
+    def test_products_support_filters_sort_and_pagination(self):
+        response = self.client.get(
+            "/api/products/",
+            {"q": "gift", "category": "Gift Set", "sort": "price_desc", "page": 1, "pageSize": 1},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["products"]), 1)
+        self.assertEqual(response.data["products"][0]["name"], "Gift Box")
+        self.assertEqual(response.data["pagination"]["pageSize"], 1)
+        self.assertIn("Gift Set", response.data["categories"])
 
 
 class SyncAdminUserCommandTests(TestCase):
@@ -354,3 +429,28 @@ class SyncAdminUserCommandTests(TestCase):
         self.assertEqual(user.email, "new-admin@example.com")
         self.assertTrue(user.check_password("ResetPass456!"))
         self.assertIn("Updated admin user 'admin'", output.getvalue())
+
+    @patch.dict(
+        "os.environ",
+        {
+            "ADMIN_USERNAME": "admin",
+            "ADMIN_PASSWORD": "StablePass789!",
+            "ADMIN_EMAIL": "admin@example.com",
+        },
+        clear=False,
+    )
+    def test_login_sync_does_not_rehash_password_when_config_is_unchanged(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="admin",
+            password="StablePass789!",
+            is_staff=True,
+            is_superuser=True,
+            email="admin@example.com",
+        )
+        original_hash = user.password
+
+        call_command("sync_admin_user")
+
+        user.refresh_from_db()
+        self.assertEqual(user.password, original_hash)

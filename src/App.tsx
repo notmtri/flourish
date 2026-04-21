@@ -41,6 +41,15 @@ interface Review {
   avatar: string;
 }
 
+interface PaginationState {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 interface Order {
   id: string;
   orderNumber: string;
@@ -52,6 +61,7 @@ interface Order {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  hasPaymentScreenshot?: boolean;
   adminNotes?: string;
   paymentScreenshot?: string;
   createdAt: string;
@@ -80,6 +90,14 @@ const validPages: Page[] = ['home', 'products', 'cart', 'checkout', 'admin', 'or
 const localApiBase = 'http://127.0.0.1:8000/api';
 const cartStorageKey = 'flourish_cart';
 const checkoutDraftStorageKey = 'flourish_checkout_draft';
+const defaultPagination: PaginationState = {
+  page: 1,
+  pageSize: 24,
+  totalItems: 0,
+  totalPages: 0,
+  hasNext: false,
+  hasPrevious: false,
+};
 const routeByPage: Record<Page, string> = {
   home: '/',
   products: '/products',
@@ -131,15 +149,24 @@ export default function App() {
     }
   });
   const [products, setProducts] = useState<Product[]>([]);
+  const [productCategories, setProductCategories] = useState<string[]>([]);
+  const [productsPagination, setProductsPagination] = useState<PaginationState>(defaultPagination);
   const [cart, setCart] = useState<CartItem[]>(() => readStoredCart());
   const [reviews, setReviews] = useState<Review[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersPagination, setOrdersPagination] = useState<PaginationState>({
+    ...defaultPagination,
+    pageSize: 20,
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adminToken, setAdminToken] = useState<string>(() => localStorage.getItem('flourish_admin_token') || '');
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isProductsLoading, setIsProductsLoading] = useState(true);
+  const [isReviewsLoading, setIsReviewsLoading] = useState(true);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [backendTaskCount, setBackendTaskCount] = useState(0);
   const [backendTaskLabel, setBackendTaskLabel] = useState<{
     title: string;
@@ -147,6 +174,12 @@ export default function App() {
   } | null>(null);
   const [placedOrderNumber, setPlacedOrderNumber] = useState('');
   const [placedPaymentMethod, setPlacedPaymentMethod] = useState('');
+  const [productQuery, setProductQuery] = useState('');
+  const [productCategory, setProductCategory] = useState('all');
+  const [productSort, setProductSort] = useState('featured');
+  const [productPage, setProductPage] = useState(1);
+  const [orderQuery, setOrderQuery] = useState('');
+  const [orderPage, setOrderPage] = useState(1);
 
   const configuredApiBase = process.env.REACT_APP_API_BASE?.trim().replace(/\/+$/, '');
   const isLocalHost =
@@ -206,30 +239,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    let active = true;
-
-    const bootstrapStorefront = async () => {
-      setIsBootstrapping(true);
-
-      try {
-        await Promise.all([
-          fetchProducts(),
-          fetchReviews(),
-          ...(isAdmin ? [fetchOrders()] : []),
-        ]);
-      } finally {
-        if (active) {
-          setIsBootstrapping(false);
-        }
-      }
-    };
-
-    void bootstrapStorefront();
-
-    return () => {
-      active = false;
-    };
-  }, [isAdmin]);
+    if (!isProductsLoading && !isReviewsLoading) {
+      setIsBootstrapping(false);
+    }
+  }, [isProductsLoading, isReviewsLoading]);
 
   useEffect(() => {
     if (!isAdmin && currentPage === 'admin') {
@@ -265,9 +278,34 @@ export default function App() {
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async ({
+    query = productQuery,
+    category = productCategory,
+    sort = productSort,
+    page = productPage,
+  }: {
+    query?: string;
+    category?: string;
+    sort?: string;
+    page?: number;
+  } = {}) => {
+    setIsProductsLoading(true);
     try {
-      const response = await fetch(getApiUrl('/products/'));
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: '24',
+      });
+      if (query.trim()) {
+        params.set('q', query.trim());
+      }
+      if (category && category !== 'all') {
+        params.set('category', category);
+      }
+      if (sort && sort !== 'featured') {
+        params.set('sort', sort);
+      }
+
+      const response = await fetch(getApiUrl(`/products/?${params.toString()}`));
 
       if (!response.ok) {
         throw new Error('Failed to fetch products');
@@ -275,13 +313,20 @@ export default function App() {
 
       const data = await response.json();
       setProducts(data.products || []);
+      setProductCategories(data.categories || []);
+      setProductsPagination(data.pagination || defaultPagination);
     } catch (error) {
       console.error('Error fetching products:', error);
       setProducts([]);
+      setProductCategories([]);
+      setProductsPagination(defaultPagination);
+    } finally {
+      setIsProductsLoading(false);
     }
   };
 
   const fetchReviews = async () => {
+    setIsReviewsLoading(true);
     try {
       const response = await fetch(getApiUrl('/reviews/'));
 
@@ -294,12 +339,29 @@ export default function App() {
     } catch (error) {
       console.error('Error fetching reviews:', error);
       setReviews([]);
+    } finally {
+      setIsReviewsLoading(false);
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async ({
+    query = orderQuery,
+    page = orderPage,
+  }: {
+    query?: string;
+    page?: number;
+  } = {}) => {
+    setIsOrdersLoading(true);
     try {
-      const response = await fetch(getApiUrl('/orders/'), {
+      const params = new URLSearchParams({
+        page: String(page),
+        pageSize: '20',
+      });
+      if (query.trim()) {
+        params.set('q', query.trim());
+      }
+
+      const response = await fetch(getApiUrl(`/orders/?${params.toString()}`), {
         headers: {
           Authorization: `Token ${adminToken}`,
         },
@@ -315,9 +377,61 @@ export default function App() {
 
       const data = await response.json();
       setOrders(data.orders || []);
+      setOrdersPagination(data.pagination || { ...defaultPagination, pageSize: 20 });
     } catch (error) {
       console.error('Error fetching orders:', error);
       setOrders([]);
+      setOrdersPagination({ ...defaultPagination, pageSize: 20 });
+    } finally {
+      setIsOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void fetchProducts();
+    }, productQuery ? 250 : 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [productCategory, productPage, productQuery, productSort]);
+
+  useEffect(() => {
+    void fetchReviews();
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      setOrders([]);
+      setOrdersPagination({ ...defaultPagination, pageSize: 20 });
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchOrders();
+    }, orderQuery ? 250 : 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [adminToken, isAdmin, orderPage, orderQuery]);
+
+  const handleLoadOrderDetails = async (id: string) => {
+    try {
+      const response = await fetch(getApiUrl(`/orders/${id}/`), {
+        headers: {
+          Authorization: `Token ${adminToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch order details');
+      }
+
+      const data = await response.json();
+      setOrders((currentOrders) =>
+        currentOrders.map((order) => (order.id === id ? { ...order, ...data.order } : order)),
+      );
+    } catch (error) {
+      console.error('Error fetching order details:', error);
+      toast.error('Failed to load the full order details.');
     }
   };
 
@@ -691,6 +805,7 @@ export default function App() {
       <AdminPanel
         products={products}
         orders={orders}
+        ordersPagination={ordersPagination}
         brandSettings={brandSettings}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
@@ -698,6 +813,14 @@ export default function App() {
         onDeleteOrder={handleDeleteOrder}
         onUpdateOrderStatus={handleUpdateOrderStatus}
         onUpdateBrandSettings={setBrandSettings}
+        onLoadOrderDetails={handleLoadOrderDetails}
+        orderQuery={orderQuery}
+        onOrderQueryChange={(value) => {
+          setOrderQuery(value);
+          setOrderPage(1);
+        }}
+        onOrderPageChange={setOrderPage}
+        isOrdersLoading={isOrdersLoading}
         onLogout={() => {
           void fetch(getApiUrl('/auth/logout/'), {
             method: 'POST',
@@ -831,17 +954,41 @@ export default function App() {
 
       <main>
         {currentPage === 'home' && (
-          <HomePage reviews={reviews} onShopNow={() => navigateTo('products')} copy={copy.home} />
+          <HomePage
+            reviews={reviews}
+            reviewsLoading={isReviewsLoading}
+            onShopNow={() => navigateTo('products')}
+            copy={copy.home}
+          />
         )}
 
         {currentPage === 'products' && (
           <ProductsPage
             products={products}
+            categories={productCategories}
+            isLoading={isProductsLoading}
+            query={productQuery}
+            selectedCategory={productCategory}
+            sort={productSort}
+            pagination={productsPagination}
             cart={cart}
             onAddToCart={handleAddToCart}
             onViewProduct={(product) => setSelectedProduct(product)}
             selectedProduct={selectedProduct}
             onBack={() => setSelectedProduct(null)}
+            onQueryChange={(value) => {
+              setProductQuery(value);
+              setProductPage(1);
+            }}
+            onCategoryChange={(value) => {
+              setProductCategory(value);
+              setProductPage(1);
+            }}
+            onSortChange={(value) => {
+              setProductSort(value);
+              setProductPage(1);
+            }}
+            onPageChange={setProductPage}
             copy={copy.products}
           />
         )}

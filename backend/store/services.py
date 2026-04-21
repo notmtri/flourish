@@ -54,15 +54,33 @@ def sync_admin_user_from_env(*, login_identifier: str = ""):
 
     User = get_user_model()
     user, created = User.objects.get_or_create(username=username)
+    changed_fields: set[str] = set()
 
     if email:
-        user.email = email
+        if user.email != email:
+            user.email = email
+            changed_fields.add("email")
 
-    user.is_staff = True
-    user.is_superuser = True
-    user.is_active = True
-    user.set_password(password)
-    user.save()
+    if not user.is_staff:
+        user.is_staff = True
+        changed_fields.add("is_staff")
+    if not user.is_superuser:
+        user.is_superuser = True
+        changed_fields.add("is_superuser")
+    if not user.is_active:
+        user.is_active = True
+        changed_fields.add("is_active")
+
+    password_changed = created or not user.check_password(password)
+    if password_changed:
+        user.set_password(password)
+
+    if created:
+        user.save()
+    elif password_changed:
+        user.save(update_fields=[*sorted(changed_fields), "password"])
+    elif changed_fields:
+        user.save(update_fields=sorted(changed_fields))
     return user, created
 
 

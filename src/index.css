@@ -120,6 +120,16 @@ a {
   .textarea-field {
     @apply input-field min-h-[120px] resize-y;
   }
+
+  .skeleton-block {
+    @apply animate-pulse rounded-[20px] bg-[linear-gradient(90deg,rgba(203,111,134,0.08),rgba(211,154,74,0.14),rgba(203,111,134,0.08))];
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+
+  .skeleton-line {
+    @apply skeleton-block h-4 rounded-full;
+  }
 }
 
 .review-marquee-mask {
@@ -150,5 +160,15 @@ a {
 
   to {
     transform: translateX(calc(-50% - 0.625rem));
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
   }
 }

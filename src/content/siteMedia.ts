@@ -15,8 +15,8 @@ export const siteMedia = {
     fallbackImage: 'https://69e4b9432d9a763bcd9bf255.imgix.net/fallback.png',
   },
   home: {
-    heroMain: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=900',
-    heroSecondary: 'https://images.unsplash.com/photo-1582794543139-8ac9cb0f7b11?w=900',
+    heroMain: 'https://ik.imagekit.io/hxk2zr0ap/5.jpg?updatedAt=1776707885065',
+    heroSecondary: 'https://ik.imagekit.io/hxk2zr0ap/21.png?updatedAt=1776707894483',
   },
   social: {
     instagram: '#',

@@ -6,6 +6,8 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { toast } from 'sonner';
 
 const checkoutDraftStorageKey = 'flourish_checkout_draft';
+const maxPaymentScreenshotBytes = 5 * 1024 * 1024;
+const supportedPaymentScreenshotTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 interface Product {
   id: string;
@@ -101,7 +103,6 @@ export default function CheckoutPage({
       setAddress(draft.address || '');
       setPhone(draft.phone || '');
       setPaymentMethod(draft.paymentMethod === 'QR' ? 'QR' : 'COD');
-      setPaymentScreenshot(draft.paymentScreenshot || '');
       setShowPaymentDetails(Boolean(draft.showPaymentDetails));
       setGeneratedOrderNumber(draft.generatedOrderNumber || '');
       setGeneratedTransferContent(draft.generatedTransferContent || '');
@@ -122,7 +123,6 @@ export default function CheckoutPage({
         address,
         phone,
         paymentMethod,
-        paymentScreenshot,
         showPaymentDetails,
         generatedOrderNumber,
         generatedTransferContent,
@@ -139,7 +139,6 @@ export default function CheckoutPage({
     generatedOrderNumber,
     generatedTransferContent,
     paymentMethod,
-    paymentScreenshot,
     phone,
     providerAvailable,
     qrError,
@@ -209,9 +208,22 @@ export default function CheckoutPage({
       return;
     }
 
+    if (!supportedPaymentScreenshotTypes.has(file.type)) {
+      toast.error('Please upload a JPG, PNG, or WebP image.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > maxPaymentScreenshotBytes) {
+      toast.error('Please keep the payment screenshot under 5 MB.');
+      event.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
       setPaymentScreenshot(reader.result as string);
+      setFormErrors((current) => ({ ...current, paymentScreenshot: undefined }));
     };
     reader.readAsDataURL(file);
   };

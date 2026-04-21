@@ -27,6 +27,7 @@ class Product(TimestampedModel):
         max_length=30,
         choices=Category.choices,
         default=Category.BOUQUET,
+        db_index=True,
     )
     is_best_seller = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -52,7 +53,7 @@ class Review(TimestampedModel):
     rating = models.PositiveSmallIntegerField(default=5)
     feedback = models.TextField()
     avatar = models.URLField(blank=True)
-    is_visible = models.BooleanField(default=True)
+    is_visible = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -87,7 +88,7 @@ class Order(TimestampedModel):
     order_number = models.CharField(max_length=32, unique=True, blank=True)
     customer_name = models.CharField(max_length=255)
     address = models.TextField()
-    phone = models.CharField(max_length=32)
+    phone = models.CharField(max_length=32, db_index=True)
     payment_method = models.CharField(
         max_length=10,
         choices=PaymentMethod.choices,
@@ -119,6 +120,9 @@ class Order(TimestampedModel):
         indexes = [
             models.Index(fields=["-created_at"]),
             models.Index(fields=["status", "payment_status"]),
+            models.Index(fields=["is_archived", "-created_at"]),
+            models.Index(fields=["customer_name"]),
+            models.Index(fields=["order_number", "phone"]),
         ]
 
     def __str__(self):

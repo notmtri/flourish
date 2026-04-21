@@ -1,5 +1,5 @@
 import { ChevronLeft, Heart, ShieldCheck, ShoppingCart } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SiteCopy } from '../content';
 import { siteMedia } from '../content/siteMedia';
 import { formatCurrency } from '../utils/format';
@@ -20,25 +20,68 @@ interface CartItem {
   quantity: number;
 }
 
+interface PaginationState {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 interface ProductsPageProps {
   products: Product[];
+  categories: string[];
+  isLoading: boolean;
+  query: string;
+  selectedCategory: string;
+  sort: string;
+  pagination: PaginationState;
   cart: CartItem[];
   onAddToCart: (product: Product) => void;
   onViewProduct: (product: Product) => void;
   selectedProduct: Product | null;
   onBack: () => void;
+  onQueryChange: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onSortChange: (value: string) => void;
+  onPageChange: (page: number) => void;
   copy: SiteCopy['products'];
 }
 
 const fallbackImage = siteMedia.products.fallbackImage;
 
+function ProductSkeleton() {
+  return (
+    <article className="surface-card overflow-hidden p-3">
+      <div className="skeleton-block aspect-square rounded-[22px]" />
+      <div className="px-2 pb-2 pt-5">
+        <div className="skeleton-line w-2/3" />
+        <div className="mt-3 skeleton-line w-1/3" />
+        <div className="mt-4 skeleton-line h-16 w-full" />
+        <div className="mt-5 skeleton-line w-1/2" />
+      </div>
+    </article>
+  );
+}
+
 export default function ProductsPage({
   products,
+  categories,
+  isLoading,
+  query,
+  selectedCategory,
+  sort,
+  pagination,
   cart,
   onAddToCart,
   onViewProduct,
   selectedProduct,
   onBack,
+  onQueryChange,
+  onCategoryChange,
+  onSortChange,
+  onPageChange,
   copy,
 }: ProductsPageProps) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -46,11 +89,6 @@ export default function ProductsPage({
   useEffect(() => {
     setSelectedImageIndex(0);
   }, [selectedProduct?.id]);
-
-  const categories = useMemo(
-    () => Array.from(new Set(products.map((product) => product.category))),
-    [products],
-  );
 
   if (selectedProduct) {
     const galleryImages =
@@ -169,15 +207,45 @@ export default function ProductsPage({
 
       {categories.length > 0 && (
         <div className="mt-8 flex flex-wrap gap-2">
+          <button
+            onClick={() => onCategoryChange('all')}
+            className={selectedCategory === 'all' ? 'btn-primary' : 'btn-secondary'}
+          >
+            All
+          </button>
           {categories.map((category) => (
-            <span key={category} className="pill">
+            <button
+              key={category}
+              onClick={() => onCategoryChange(category)}
+              className={selectedCategory === category ? 'btn-primary' : 'btn-secondary'}
+            >
               {category}
-            </span>
+            </button>
           ))}
         </div>
       )}
 
-      {bestSellers.length > 0 && (
+      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_240px]">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          className="input-field"
+          placeholder="Search by bouquet name, category, or description"
+        />
+        <select
+          value={sort}
+          onChange={(event) => onSortChange(event.target.value)}
+          className="input-field"
+        >
+          <option value="featured">Featured first</option>
+          <option value="price_asc">Price: low to high</option>
+          <option value="price_desc">Price: high to low</option>
+          <option value="name_asc">Name: A to Z</option>
+        </select>
+      </div>
+
+      {bestSellers.length > 0 && !isLoading && (
         <section className="mt-12">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">{copy.listing.bestSellersTitle}</h2>
@@ -228,10 +296,18 @@ export default function ProductsPage({
       <section className="mt-14">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="brand-heading text-3xl text-[color:var(--foreground)]">{copy.listing.allProductsTitle}</h2>
-          <span className="text-sm text-[color:var(--muted)]">{copy.listing.availableLabel(products.length)}</span>
+          <span className="text-sm text-[color:var(--muted)]">
+            {copy.listing.availableLabel(pagination.totalItems || products.length)}
+          </span>
         </div>
 
-        {products.length === 0 ? (
+        {isLoading ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <ProductSkeleton key={index} />
+            ))}
+          </div>
+        ) : products.length === 0 ? (
           <div className="surface-card p-10 text-center">
             <h3 className="text-3xl text-[color:var(--foreground)]">{copy.listing.emptyTitle}</h3>
             <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
@@ -283,6 +359,28 @@ export default function ProductsPage({
                 </article>
               );
             })}
+          </div>
+        )}
+
+        {pagination.totalPages > 1 && (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              onClick={() => onPageChange(Math.max(1, pagination.page - 1))}
+              disabled={!pagination.hasPrevious}
+              className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous page
+            </button>
+            <span className="pill">
+              Page {pagination.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => onPageChange(Math.min(pagination.totalPages, pagination.page + 1))}
+              disabled={!pagination.hasNext}
+              className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next page
+            </button>
           </div>
         )}
       </section>

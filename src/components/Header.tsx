@@ -26,6 +26,7 @@ export default function Header({
     { id: 'home', label: copy.nav.home },
     { id: 'products', label: copy.nav.products },
   ];
+  const mobileNavItems = [...navItems, { id: 'cart', label: copy.nav.cart }];
 
   const handleNavigate = (page: string) => {
     onNavigate(page);
@@ -145,7 +146,7 @@ export default function Header({
         {mobileMenuOpen && (
           <div className="surface-card mb-4 rounded-[24px] p-3 md:hidden">
             <div className="space-y-2">
-              {navItems.map((item) => {
+              {mobileNavItems.map((item) => {
                 const isActive =
                   currentPage === item.id ||
                   (item.id === 'products' && currentPage === 'checkout');

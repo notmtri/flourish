@@ -182,6 +182,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'admin_login': os.getenv('ADMIN_LOGIN_RATE', '5/hour'),
         'order_create': os.getenv('ORDER_CREATE_RATE', '30/hour'),
+        'review_create': os.getenv('REVIEW_CREATE_RATE', '5/hour'),
     },
 }
 ADMIN_TOKEN_TTL_HOURS = int(os.getenv("ADMIN_TOKEN_TTL_HOURS", "24"))

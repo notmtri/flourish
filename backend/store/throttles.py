@@ -16,5 +16,17 @@ class OrderCreateThrottle(SimpleRateThrottle):
     scope = "order_create"
 
     def get_cache_key(self, request, view):
+        if request.method != "POST":
+            return None
+        ip = self.get_ident(request)
+        return self.cache_format % {"scope": self.scope, "ident": ip}
+
+
+class ReviewCreateThrottle(SimpleRateThrottle):
+    scope = "review_create"
+
+    def get_cache_key(self, request, view):
+        if request.method != "POST":
+            return None
         ip = self.get_ident(request)
         return self.cache_format % {"scope": self.scope, "ident": ip}

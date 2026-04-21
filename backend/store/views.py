@@ -1,6 +1,9 @@
 import logging
+from time import perf_counter
 
 from django.contrib.auth import authenticate
+from django.core.paginator import EmptyPage, Paginator
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -11,8 +14,10 @@ from rest_framework.response import Response
 from .models import Order, Product, Review
 from .serializers import (
     OrderCreateSerializer,
+    OrderListSerializer,
     OrderSerializer,
     ProductSerializer,
+    ReviewCreateSerializer,
     ReviewSerializer,
 )
 from .services import (
@@ -23,7 +28,7 @@ from .services import (
     send_order_notifications,
     sync_admin_user_from_env,
 )
-from .throttles import AdminLoginThrottle, OrderCreateThrottle
+from .throttles import AdminLoginThrottle, OrderCreateThrottle, ReviewCreateThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,57 @@ def archive_order(order: Order, *, actor=None):
         record_order_audit(order, actor=actor, action="archived")
 
 
+def log_request_timing(name: str, request, started_at: float, **extra):
+    duration_ms = round((perf_counter() - started_at) * 1000, 2)
+    logger.info(
+        "%s completed in %sms",
+        name,
+        duration_ms,
+        extra={**extra, "path": request.path, "duration_ms": duration_ms},
+    )
+
+
+def paginate_queryset(queryset, request, *, default_page_size=24, max_page_size=100):
+    raw_page_size = request.query_params.get("pageSize", "").strip()
+    try:
+        page_size = int(raw_page_size) if raw_page_size else default_page_size
+    except ValueError:
+        page_size = default_page_size
+    page_size = max(1, min(page_size, max_page_size))
+
+    raw_page = request.query_params.get("page", "").strip()
+    try:
+        page_number = int(raw_page) if raw_page else 1
+    except ValueError:
+        page_number = 1
+    page_number = max(1, page_number)
+
+    paginator = Paginator(queryset, page_size)
+    if paginator.count == 0:
+        return queryset.none(), {
+            "page": 1,
+            "pageSize": page_size,
+            "totalItems": 0,
+            "totalPages": 0,
+            "hasNext": False,
+            "hasPrevious": False,
+        }
+
+    try:
+        page_obj = paginator.page(page_number)
+    except EmptyPage:
+        page_obj = paginator.page(paginator.num_pages)
+
+    return page_obj.object_list, {
+        "page": page_obj.number,
+        "pageSize": page_size,
+        "totalItems": paginator.count,
+        "totalPages": paginator.num_pages,
+        "hasNext": page_obj.has_next(),
+        "hasPrevious": page_obj.has_previous(),
+    }
+
+
 @api_view(["GET"])
 def health(request):
     return Response({"status": "ok"})
@@ -52,6 +108,7 @@ def health(request):
 @api_view(["POST"])
 @throttle_classes([AdminLoginThrottle])
 def admin_login(request):
+    started_at = perf_counter()
     username = request.data.get("username", "").strip()
     password = request.data.get("password", "")
     synced_user = sync_admin_user_from_env(login_identifier=username)
@@ -66,6 +123,7 @@ def admin_login(request):
 
     Token.objects.filter(user=user).delete()
     token = Token.objects.create(user=user)
+    log_request_timing("admin_login", request, started_at, username=user.username)
     return Response(
         {
             "token": token.key,
@@ -155,11 +213,52 @@ def vietqr_preview(request):
 @api_view(["GET", "POST"])
 def products_collection(request):
     if request.method == "GET":
+        started_at = perf_counter()
         query = request.query_params.get("q", "").strip()
+        category = request.query_params.get("category", "").strip()
+        sort = request.query_params.get("sort", "").strip()
         products = Product.objects.filter(is_active=True)
         if query:
-            products = products.filter(name__icontains=query)
-        return Response({"products": ProductSerializer(products, many=True).data})
+            products = products.filter(
+                Q(name__icontains=query)
+                | Q(description__icontains=query)
+                | Q(category__icontains=query)
+            )
+        if category:
+            products = products.filter(category=category)
+
+        if sort == "price_asc":
+            products = products.order_by("price", "-created_at")
+        elif sort == "price_desc":
+            products = products.order_by("-price", "-created_at")
+        elif sort == "name_asc":
+            products = products.order_by("name", "-created_at")
+        else:
+            products = products.order_by("-is_best_seller", "-created_at")
+
+        paginated_products, pagination = paginate_queryset(products, request, default_page_size=24)
+        categories = list(
+            Product.objects.filter(is_active=True)
+            .order_by("category")
+            .values_list("category", flat=True)
+            .distinct()
+        )
+        log_request_timing(
+            "products_collection",
+            request,
+            started_at,
+            query=query,
+            category=category,
+            sort=sort or "default",
+            page=pagination["page"],
+        )
+        return Response(
+            {
+                "products": ProductSerializer(paginated_products, many=True).data,
+                "pagination": pagination,
+                "categories": categories,
+            }
+        )
 
     if not is_admin(request):
         return admin_required_response()
@@ -192,15 +291,22 @@ def product_detail(request, pk):
 
 
 @api_view(["GET", "POST"])
+@throttle_classes([ReviewCreateThrottle])
 def reviews_collection(request):
     if request.method == "GET":
         reviews = Review.objects.filter(is_visible=True)
         return Response({"reviews": ReviewSerializer(reviews, many=True).data})
 
-    serializer = ReviewSerializer(data=request.data)
+    serializer = ReviewCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
-    return Response({"review": serializer.data}, status=status.HTTP_201_CREATED)
+    review = serializer.save(is_visible=False)
+    return Response(
+        {
+            "review": ReviewSerializer(review).data,
+            "message": "Thanks for your review. It will appear after approval.",
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
 
 
 @api_view(["PUT", "DELETE"])
@@ -223,6 +329,7 @@ def review_detail(request, pk):
 @throttle_classes([OrderCreateThrottle])
 def orders_collection(request):
     if request.method == "GET":
+        started_at = perf_counter()
         if not is_admin(request):
             return admin_required_response()
 
@@ -231,12 +338,36 @@ def orders_collection(request):
         status_filter = request.query_params.get("status", "").strip()
         payment_filter = request.query_params.get("paymentStatus", "").strip()
         if query:
-            orders = orders.filter(customer_name__icontains=query) | orders.filter(order_number__icontains=query) | orders.filter(phone__icontains=query)
+            orders = orders.filter(
+                Q(customer_name__icontains=query)
+                | Q(order_number__icontains=query)
+                | Q(phone__icontains=query)
+            )
         if status_filter:
             orders = orders.filter(status=status_filter)
         if payment_filter:
             orders = orders.filter(payment_status=payment_filter)
-        return Response({"orders": OrderSerializer(orders.distinct(), many=True).data})
+        paginated_orders, pagination = paginate_queryset(
+            orders.distinct(),
+            request,
+            default_page_size=20,
+            max_page_size=100,
+        )
+        log_request_timing(
+            "orders_collection",
+            request,
+            started_at,
+            query=query,
+            status=status_filter,
+            payment_status=payment_filter,
+            page=pagination["page"],
+        )
+        return Response(
+            {
+                "orders": OrderListSerializer(paginated_orders, many=True).data,
+                "pagination": pagination,
+            }
+        )
 
     serializer = OrderCreateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

@@ -33,14 +33,25 @@ interface Order {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  hasPaymentScreenshot?: boolean;
   adminNotes?: string;
   paymentScreenshot?: string;
   createdAt: string;
 }
 
+interface PaginationState {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 interface AdminPanelProps {
   products: Product[];
   orders: Order[];
+  ordersPagination: PaginationState;
   brandSettings: BrandSettings;
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
@@ -48,6 +59,11 @@ interface AdminPanelProps {
   onDeleteOrder: (id: string, orderNumber: string) => void;
   onUpdateOrderStatus: (id: string, status: string, paymentStatus: string, adminNotes?: string) => void;
   onUpdateBrandSettings: (settings: BrandSettings) => void;
+  onLoadOrderDetails: (id: string) => Promise<void>;
+  orderQuery: string;
+  onOrderQueryChange: (value: string) => void;
+  onOrderPageChange: (page: number) => void;
+  isOrdersLoading: boolean;
   onLogout: () => void;
 }
 
@@ -66,6 +82,7 @@ function needsAttention(order: Order) {
 export default function AdminPanel({
   products,
   orders,
+  ordersPagination,
   brandSettings,
   onAddProduct,
   onUpdateProduct,
@@ -73,13 +90,17 @@ export default function AdminPanel({
   onDeleteOrder,
   onUpdateOrderStatus,
   onUpdateBrandSettings,
+  onLoadOrderDetails,
+  orderQuery,
+  onOrderQueryChange,
+  onOrderPageChange,
+  isOrdersLoading,
   onLogout,
 }: AdminPanelProps) {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
   const [showProductForm, setShowProductForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productQuery, setProductQuery] = useState('');
-  const [orderQuery, setOrderQuery] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -93,15 +114,6 @@ export default function AdminPanel({
   const ongoingOrders = useMemo(
     () =>
       orders
-        .filter((order) => {
-          const query = orderQuery.trim().toLowerCase();
-          if (!query) {
-            return true;
-          }
-          return [order.orderNumber, order.customerName, order.phone].some((value) =>
-            value.toLowerCase().includes(query),
-          );
-        })
         .filter((order) => !isPastOrder(order))
         .sort((left, right) => {
           const leftScore = Number(needsAttention(left));
@@ -112,27 +124,18 @@ export default function AdminPanel({
 
           return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
         }),
-    [orderQuery, orders],
+    [orders],
   );
 
   const pastOrders = useMemo(
     () =>
       orders
-        .filter((order) => {
-          const query = orderQuery.trim().toLowerCase();
-          if (!query) {
-            return true;
-          }
-          return [order.orderNumber, order.customerName, order.phone].some((value) =>
-            value.toLowerCase().includes(query),
-          );
-        })
         .filter((order) => isPastOrder(order))
         .sort(
           (left, right) =>
             new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
         ),
-    [orderQuery, orders],
+    [orders],
   );
 
   const filteredProducts = useMemo(
@@ -411,6 +414,23 @@ export default function AdminPanel({
                   alt="Payment proof"
                   className="mt-4 max-h-72 w-full rounded-[18px] object-contain"
                 />
+              </div>
+            )}
+
+            {order.hasPaymentScreenshot && !order.paymentScreenshot && (
+              <div className="rounded-[24px] border border-[color:var(--line)] bg-white/75 p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                  Payment screenshot
+                </p>
+                <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
+                  Load the payment proof only when you need to verify it so the admin queue stays fast.
+                </p>
+                <button
+                  onClick={() => void onLoadOrderDetails(order.id)}
+                  className="btn-secondary mt-4"
+                >
+                  Load payment proof
+                </button>
               </div>
             )}
           </div>
@@ -713,12 +733,30 @@ export default function AdminPanel({
             <input
               type="search"
               value={orderQuery}
-              onChange={(event) => setOrderQuery(event.target.value)}
+              onChange={(event) => onOrderQueryChange(event.target.value)}
               className="input-field mb-6"
               placeholder="Search orders by order number, customer, or phone"
             />
 
-            {orders.length === 0 ? (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 text-sm text-[color:var(--muted)]">
+              <span>
+                {ordersPagination.totalItems} total orders
+                {orderQuery.trim() ? ` for "${orderQuery.trim()}"` : ''}
+              </span>
+              <span>
+                Page {ordersPagination.totalPages === 0 ? 0 : ordersPagination.page} of{' '}
+                {ordersPagination.totalPages}
+              </span>
+            </div>
+
+            {isOrdersLoading ? (
+              <div className="surface-card p-10 text-center">
+                <h3 className="text-3xl text-[color:var(--foreground)]">Loading orders</h3>
+                <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
+                  Refreshing the latest admin queue and payment reviews.
+                </p>
+              </div>
+            ) : orders.length === 0 ? (
               <div className="surface-card p-10 text-center">
                 <h3 className="text-3xl text-[color:var(--foreground)]">No orders yet</h3>
                 <p className="mx-auto mt-3 max-w-lg text-sm leading-7 text-[color:var(--muted)]">
@@ -772,6 +810,32 @@ export default function AdminPanel({
                     <div className="space-y-5">{pastOrders.map(renderOrderCard)}</div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {ordersPagination.totalPages > 1 && (
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => onOrderPageChange(Math.max(1, ordersPagination.page - 1))}
+                  disabled={!ordersPagination.hasPrevious}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous page
+                </button>
+                <span className="pill">
+                  Page {ordersPagination.page} of {ordersPagination.totalPages}
+                </span>
+                <button
+                  onClick={() =>
+                    onOrderPageChange(
+                      Math.min(ordersPagination.totalPages, ordersPagination.page + 1),
+                    )
+                  }
+                  disabled={!ordersPagination.hasNext}
+                  className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next page
+                </button>
               </div>
             )}
           </section>
