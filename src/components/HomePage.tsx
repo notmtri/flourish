@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, Gift, GraduationCap, Heart, ShieldCheck, ShoppingBag, Star } from 'lucide-react';
+import { ArrowRight, Clock3, Gift, GraduationCap, Heart, ShieldCheck, Star } from 'lucide-react';
 import { SiteCopy } from '../content';
 import { fallbackReviews, siteMedia } from '../content/siteMedia';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -15,10 +15,7 @@ interface Review {
 interface HomePageProps {
   reviews: Review[];
   reviewsLoading: boolean;
-  cartItemCount: number;
   onShopNow: () => void;
-  onOpenCart: () => void;
-  onContinueCheckout: () => void;
   copy: SiteCopy['home'];
 }
 const featureIcons = [Clock3, Heart, ShieldCheck];
@@ -27,10 +24,7 @@ const occasionIcons = [GraduationCap, Gift, Heart];
 export default function HomePage({
   reviews,
   reviewsLoading,
-  cartItemCount,
   onShopNow,
-  onOpenCart,
-  onContinueCheckout,
   copy,
 }: HomePageProps) {
   const reviewList = reviews.length > 0 ? reviews : fallbackReviews;
@@ -38,47 +32,27 @@ export default function HomePage({
 
   return (
     <div className="overflow-hidden">
-      <section className="shell-wide grid gap-8 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14 lg:py-20">
+      <section className="shell-wide grid gap-8 py-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:gap-14 lg:py-20">
         <div className="relative z-10">
-          <span className="section-kicker">{copy.heroKicker}</span>
-          <h1 className="section-title max-w-3xl text-4xl sm:text-6xl lg:text-7xl">{copy.heroTitle}</h1>
+          <span className="section-kicker max-w-full px-4 py-2 text-[10px] tracking-[0.2em] sm:text-xs sm:tracking-[0.28em]">
+            {copy.heroKicker}
+          </span>
+          <h1 className="max-w-[11ch] text-[2.8rem] leading-[0.96] tracking-[-0.05em] text-[color:var(--foreground)] sm:max-w-3xl sm:text-6xl lg:text-7xl">
+            {copy.heroTitle}
+          </h1>
           <p className="section-copy mt-6 max-w-xl">
             {copy.heroCopy}
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button onClick={onShopNow} className="btn-primary min-h-12">
+          <div className="mt-8 grid gap-3 sm:flex sm:flex-wrap">
+            <button onClick={onShopNow} className="btn-primary min-h-12 w-full justify-center sm:w-auto">
               {copy.ctaPrimary}
               <ArrowRight className="h-4 w-4" />
             </button>
-            <span className="btn-secondary min-h-12">{copy.ctaSecondary}</span>
+            <span className="btn-secondary min-h-12 w-full justify-center sm:w-auto">{copy.ctaSecondary}</span>
           </div>
 
-          <div className="mt-5 flex gap-3 overflow-x-auto pb-2 sm:hidden">
-            <button onClick={onShopNow} className="surface-card flex min-w-[190px] items-center gap-3 p-4 text-left">
-              <ArrowRight className="h-5 w-5 text-[color:var(--accent-dark)]" />
-              <div>
-                <p className="text-sm font-semibold text-[color:var(--foreground)]">Shop best sellers</p>
-                <p className="mt-1 text-xs text-[color:var(--muted)]">Jump into the bouquet catalog</p>
-              </div>
-            </button>
-            <button onClick={onContinueCheckout} className="surface-card flex min-w-[190px] items-center gap-3 p-4 text-left">
-              <ShoppingBag className="h-5 w-5 text-[color:var(--accent-dark)]" />
-              <div>
-                <p className="text-sm font-semibold text-[color:var(--foreground)]">Continue checkout</p>
-                <p className="mt-1 text-xs text-[color:var(--muted)]">Go straight to your order form</p>
-              </div>
-            </button>
-            <button onClick={onOpenCart} className="surface-card flex min-w-[190px] items-center gap-3 p-4 text-left">
-              <ShoppingBag className="h-5 w-5 text-[color:var(--accent-dark)]" />
-              <div>
-                <p className="text-sm font-semibold text-[color:var(--foreground)]">Reopen cart</p>
-                <p className="mt-1 text-xs text-[color:var(--muted)]">{cartItemCount} item{cartItemCount === 1 ? '' : 's'} waiting</p>
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-8 grid auto-cols-[minmax(220px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-2 sm:grid-flow-row sm:grid-cols-3 sm:overflow-visible">
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
             {copy.stats.map((stat) => (
               <div key={stat.value} className="surface-card rounded-[24px] p-5">
                 <p className="brand-heading text-3xl">{stat.value}</p>
@@ -89,12 +63,12 @@ export default function HomePage({
         </div>
 
         <div className="relative">
-          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+          <div className="grid gap-4 md:grid-cols-2 md:gap-5">
             <div className="surface-card-strong overflow-hidden rounded-[28px] p-3">
               <ImageWithFallback
                 src={siteMedia.home.heroMain}
                 alt="Flourish bouquet closeup"
-                className="h-[240px] w-full rounded-[22px] object-cover sm:h-[420px] lg:h-[520px]"
+                className="h-[220px] w-full rounded-[22px] object-cover sm:h-[420px] lg:h-[520px]"
               />
             </div>
             <div className="space-y-4 sm:space-y-5">

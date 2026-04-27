@@ -987,10 +987,7 @@ export default function App() {
           <HomePage
             reviews={reviews}
             reviewsLoading={isReviewsLoading}
-            cartItemCount={cartItemCount}
             onShopNow={() => navigateTo('products')}
-            onOpenCart={() => navigateTo('cart')}
-            onContinueCheckout={() => navigateTo(cartItemCount > 0 ? 'checkout' : 'products')}
             copy={copy.home}
           />
         )}

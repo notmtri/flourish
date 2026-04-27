@@ -28,7 +28,7 @@ export const en: SiteCopy = {
       location: 'Nha Trang, Vietnam',
     },
     bottomLine: 'Handmade keepsakes for moments worth holding onto.',
-    bottomTagline: 'Designed for gifting, celebration, and thoughtful messages.',
+    bottomTagline: 'Web app developed by notmtri.',
   },
   home: {
     heroKicker: 'For everlasting memories',

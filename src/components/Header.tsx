@@ -49,13 +49,13 @@ export default function Header({
   return (
     <header className="sticky top-0 z-50 border-b border-[color:var(--line)] bg-[#fffaf6]">
       <div className="shell-wide">
-        <div className="flex items-center justify-between gap-4 py-4">
+        <div className="flex items-center justify-between gap-3 py-4">
           <button
             onClick={() => handleNavigate('home')}
-            className="group flex items-center gap-3 text-left"
+            className="group flex min-w-0 flex-1 items-center gap-3 pr-2 text-left"
           >
             {brandSettings.logoUrl ? (
-              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[color:var(--line)] bg-white">
+              <div className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full border border-[color:var(--line)] bg-white sm:h-12 sm:w-12">
                 <ImageWithFallback
                   src={brandSettings.logoUrl}
                   alt={copy.logoAlt}
@@ -67,9 +67,11 @@ export default function Header({
                 F
               </div>
             )}
-            <div>
-              <p className="brand-heading text-2xl text-[color:var(--foreground)]">{copy.brandName}</p>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
+            <div className="min-w-0">
+              <p className="brand-heading truncate text-[2rem] leading-none text-[color:var(--foreground)] sm:text-2xl">
+                {copy.brandName}
+              </p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)] sm:text-xs sm:tracking-[0.24em]">
                 {copy.brandTagline}
               </p>
             </div>
@@ -123,18 +125,18 @@ export default function Header({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex flex-none items-center gap-2 md:hidden">
             <button
               onClick={onOpenAdmin}
               aria-label={copy.adminAriaLabel}
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
             >
               <Settings2 className="h-4 w-4" />
             </button>
             <button
               onClick={() => handleNavigate('cart')}
               aria-label={copy.cartAriaLabel}
-              className={`relative inline-flex h-12 w-12 items-center justify-center rounded-full border text-[color:var(--foreground)] ${
+              className={`relative inline-flex h-11 w-11 items-center justify-center rounded-full border text-[color:var(--foreground)] ${
                 currentPage === 'cart' || currentPage === 'checkout'
                   ? 'border-[color:var(--foreground)] bg-[color:var(--foreground)] text-white'
                   : 'border-[color:var(--line)] bg-white/80'
@@ -149,7 +151,7 @@ export default function Header({
             </button>
             <button
               onClick={() => setMobileMenuOpen((value) => !value)}
-              className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-[color:var(--foreground)]"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
