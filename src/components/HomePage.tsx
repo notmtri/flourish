@@ -93,70 +93,76 @@ export default function HomePage({
         </div>
       </section>
 
-      <section className="section-shell">
-        <div className="surface-card-strong grid gap-10 p-8 lg:grid-cols-[0.9fr_1.1fr] lg:p-12">
-          <div>
-            <span className="section-kicker">{copy.brandStory.kicker}</span>
-            <h2 className="section-title">{copy.brandStory.title}</h2>
-          </div>
-          <div className="space-y-5 text-[color:var(--muted)]">
-            {copy.brandStory.paragraphs.map((paragraph) => (
-              <p key={paragraph} className="section-copy">
-                {paragraph}
-              </p>
-            ))}
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="shell-wide">
+          <div className="surface-card-strong grid gap-10 p-8 lg:grid-cols-[0.9fr_1.1fr] lg:p-12">
+            <div>
+              <span className="section-kicker">{copy.brandStory.kicker}</span>
+              <h2 className="section-title">{copy.brandStory.title}</h2>
+            </div>
+            <div className="space-y-5 text-[color:var(--muted)]">
+              {copy.brandStory.paragraphs.map((paragraph) => (
+                <p key={paragraph} className="section-copy">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="section-shell">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <span className="section-kicker">{copy.whyFlourish.kicker}</span>
-            <h2 className="section-title">{copy.whyFlourish.title}</h2>
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="shell-wide">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="section-kicker">{copy.whyFlourish.kicker}</span>
+              <h2 className="section-title">{copy.whyFlourish.title}</h2>
+            </div>
+            <p className="max-w-xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
+              {copy.whyFlourish.copy}
+            </p>
           </div>
-          <p className="max-w-xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-            {copy.whyFlourish.copy}
-          </p>
-        </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {copy.whyFlourish.features.map(({ title, description }, index) => {
-            const Icon = featureIcons[index];
-            return (
-              <div key={title} className="surface-card p-7">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(203,111,134,0.12)] text-[color:var(--accent-dark)]">
-                  <Icon className="h-6 w-6" />
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {copy.whyFlourish.features.map(({ title, description }, index) => {
+              const Icon = featureIcons[index];
+              return (
+                <div key={title} className="surface-card p-7">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(203,111,134,0.12)] text-[color:var(--accent-dark)]">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <h3 className="mt-5 text-2xl text-[color:var(--foreground)]">{title}</h3>
+                  <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
                 </div>
-                <h3 className="mt-5 text-2xl text-[color:var(--foreground)]">{title}</h3>
-                <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      <section className="section-shell">
-        <div className="mb-8">
-          <span className="section-kicker">{copy.occasions.kicker}</span>
-          <h2 className="section-title">{copy.occasions.title}</h2>
-        </div>
+      <section className="py-12 sm:py-16 lg:py-20">
+        <div className="shell-wide">
+          <div className="mb-8">
+            <span className="section-kicker">{copy.occasions.kicker}</span>
+            <h2 className="section-title">{copy.occasions.title}</h2>
+          </div>
 
-        <div className="grid gap-5 md:grid-cols-3">
-          {copy.occasions.items.map(({ title, description }, index) => {
-            const Icon = occasionIcons[index];
-            return (
-              <div key={title} className="surface-card flex items-start gap-4 p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(211,154,74,0.14)] text-[color:var(--gold)]">
-                  <Icon className="h-6 w-6" />
+          <div className="grid gap-5 md:grid-cols-3">
+            {copy.occasions.items.map(({ title, description }, index) => {
+              const Icon = occasionIcons[index];
+              return (
+                <div key={title} className="surface-card flex items-start gap-4 p-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(211,154,74,0.14)] text-[color:var(--gold)]">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl text-[color:var(--foreground)]">{title}</h3>
+                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-2xl text-[color:var(--foreground)]">{title}</h3>
-                  <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
 
