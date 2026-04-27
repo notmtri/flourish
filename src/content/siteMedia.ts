@@ -19,8 +19,8 @@ export const siteMedia = {
     heroSecondary: 'https://ik.imagekit.io/hxk2zr0ap/21.png?updatedAt=1776707894483',
   },
   social: {
-    instagram: '#',
-    facebook: '#',
+    instagram: 'https://www.instagram.com/darianguyenn',
+    facebook: 'https://www.facebook.com/darianguynn',
   },
 };
 

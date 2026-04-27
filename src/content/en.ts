@@ -23,12 +23,12 @@ export const en: SiteCopy = {
     quickAccessTitle: 'Quick Access',
     connectTitle: 'Connect With Us',
     contact: {
-      email: 'hello@flourish.vn',
-      phone: '+84 123 456 789',
+      email: 'nguyentranhuyendieu08@gmail.com',
+      phone: '+84 988 647 768',
       location: 'Nha Trang, Vietnam',
     },
     bottomLine: 'Handmade keepsakes for moments worth holding onto.',
-    bottomTagline: 'Web app developed by notmtri.',
+    bottomTagline: 'developed by notmtri, managed by daria, owned by Thinh Tran',
   },
   home: {
     heroKicker: 'For everlasting memories',
