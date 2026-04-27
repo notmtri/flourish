@@ -52,11 +52,11 @@ export default function HomePage({
             <span className="btn-secondary min-h-12 w-full justify-center sm:w-auto">{copy.ctaSecondary}</span>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-8 grid grid-cols-2 gap-3 min-[520px]:grid-cols-3 md:gap-4">
             {copy.stats.map((stat) => (
-              <div key={stat.value} className="surface-card rounded-[24px] p-5">
-                <p className="brand-heading text-3xl">{stat.value}</p>
-                <p className="mt-2 text-sm text-[color:var(--muted)]">{stat.label}</p>
+              <div key={stat.value} className="surface-card rounded-[24px] p-4 sm:p-5">
+                <p className="brand-heading text-2xl sm:text-3xl">{stat.value}</p>
+                <p className="mt-2 text-xs text-[color:var(--muted)] sm:text-sm">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -123,16 +123,16 @@ export default function HomePage({
             </p>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
+          <div className="mt-10 grid grid-cols-2 gap-4 min-[520px]:grid-cols-3 md:gap-5">
             {copy.whyFlourish.features.map(({ title, description }, index) => {
               const Icon = featureIcons[index];
               return (
-                <div key={title} className="surface-card p-7">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(203,111,134,0.12)] text-[color:var(--accent-dark)]">
-                    <Icon className="h-6 w-6" />
+                <div key={title} className="surface-card p-5 sm:p-7">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(203,111,134,0.12)] text-[color:var(--accent-dark)] sm:h-12 sm:w-12">
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
-                  <h3 className="mt-5 text-2xl text-[color:var(--foreground)]">{title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
+                  <h3 className="mt-4 text-xl text-[color:var(--foreground)] sm:mt-5 sm:text-2xl">{title}</h3>
+                  <p className="mt-3 text-xs leading-6 text-[color:var(--muted)] sm:text-sm sm:leading-7">{description}</p>
                 </div>
               );
             })}
@@ -147,17 +147,17 @@ export default function HomePage({
             <h2 className="section-title">{copy.occasions.title}</h2>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 min-[520px]:grid-cols-3 md:gap-5">
             {copy.occasions.items.map(({ title, description }, index) => {
               const Icon = occasionIcons[index];
               return (
-                <div key={title} className="surface-card flex items-start gap-4 p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgba(211,154,74,0.14)] text-[color:var(--gold)]">
-                    <Icon className="h-6 w-6" />
+                <div key={title} className="surface-card flex items-start gap-3 p-5 sm:gap-4 sm:p-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(211,154,74,0.14)] text-[color:var(--gold)] sm:h-12 sm:w-12">
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
                   </div>
                   <div>
-                    <h3 className="text-2xl text-[color:var(--foreground)]">{title}</h3>
-                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{description}</p>
+                    <h3 className="text-xl text-[color:var(--foreground)] sm:text-2xl">{title}</h3>
+                    <p className="mt-2 text-xs leading-6 text-[color:var(--muted)] sm:text-sm sm:leading-7">{description}</p>
                   </div>
                 </div>
               );
