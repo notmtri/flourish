@@ -58,7 +58,7 @@ function ProductSkeleton() {
       <div className="px-2 pb-2 pt-5">
         <div className="skeleton-line w-2/3" />
         <div className="mt-3 skeleton-line w-1/3" />
-        <div className="mt-4 skeleton-line h-16 w-full" />
+        <div className="mt-4 skeleton-line h-12 sm:h-16 w-full" />
         <div className="mt-5 skeleton-line w-1/2" />
       </div>
     </article>
@@ -252,7 +252,7 @@ export default function ProductsPage({
             <span className="text-sm text-[color:var(--muted)]">{copy.listing.bestSellersCopy}</span>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 min-[520px]:grid-cols-3 xl:grid-cols-4 xl:gap-5">
             {bestSellers.map((product) => {
               const inCartCount =
                 cart.find((item) => item.product.id === product.id)?.quantity ?? 0;
@@ -272,11 +272,11 @@ export default function ProductsPage({
                     </div>
                     <div className="px-2 pb-2 pt-5">
                       <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-2xl text-[color:var(--foreground)]">{product.name}</h3>
+                        <h3 className="text-xl text-[color:var(--foreground)] sm:text-2xl">{product.name}</h3>
                         <span className="pill">{copy.listing.bestSellerPill}</span>
                       </div>
-                      <p className="mt-2 text-sm text-[color:var(--muted)]">{product.category}</p>
-                      <p className="mt-4 text-lg font-semibold text-[color:var(--accent-dark)]">
+                      <p className="mt-2 text-xs text-[color:var(--muted)] sm:text-sm">{product.category}</p>
+                      <p className="mt-4 text-base font-semibold text-[color:var(--accent-dark)] sm:text-lg">
                         {formatCurrency(product.price)}
                       </p>
                       {inCartCount > 0 && (
@@ -302,7 +302,7 @@ export default function ProductsPage({
         </div>
 
         {isLoading ? (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 min-[520px]:grid-cols-3 xl:grid-cols-4 xl:gap-5">
             {Array.from({ length: 8 }).map((_, index) => (
               <ProductSkeleton key={index} />
             ))}
@@ -315,7 +315,7 @@ export default function ProductsPage({
             </p>
           </div>
         ) : (
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 min-[520px]:grid-cols-3 xl:grid-cols-4 xl:gap-5">
             {products.map((product) => {
               const inCartCount =
                 cart.find((item) => item.product.id === product.id)?.quantity ?? 0;
@@ -336,16 +336,16 @@ export default function ProductsPage({
                     <div className="px-2 pb-2 pt-5">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <h3 className="text-2xl text-[color:var(--foreground)]">{product.name}</h3>
-                          <p className="mt-1 text-sm text-[color:var(--muted)]">{product.category}</p>
+                          <h3 className="text-xl text-[color:var(--foreground)] sm:text-2xl">{product.name}</h3>
+                          <p className="mt-1 text-xs text-[color:var(--muted)] sm:text-sm">{product.category}</p>
                         </div>
                         {product.isBestSeller && <span className="pill">{copy.listing.popularPill}</span>}
                       </div>
-                      <p className="mt-3 line-clamp-3 text-sm leading-7 text-[color:var(--muted)]">
+                      <p className="mt-3 line-clamp-2 text-xs leading-6 text-[color:var(--muted)] sm:line-clamp-3 sm:text-sm sm:leading-7">
                         {product.description}
                       </p>
                       <div className="mt-5 flex items-center justify-between">
-                        <p className="text-lg font-semibold text-[color:var(--accent-dark)]">
+                        <p className="text-base font-semibold text-[color:var(--accent-dark)] sm:text-lg">
                           {formatCurrency(product.price)}
                         </p>
                         {inCartCount > 0 && (
